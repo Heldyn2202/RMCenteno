@@ -44,6 +44,26 @@ include ('../../admin/layout/parte1.php');
                         </div>
                     </div>
                 </div>
+
+                <div class="col-md-6 col-sm-6 col-12">
+                    <div class="info-box">
+                        <span class="info-box-icon bg-success"><i class="bi bi-grid-3x3"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text"><b>Horarios Consolidados</b></span>
+                            <a href="horarios_consolidados.php" class="btn btn-success btn-sm">Ver</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 col-sm-6 col-12">
+                    <div class="info-box">
+                        <span class="info-box-icon bg-warning"><i class="bi bi-search"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text"><b>Disponibilidad de Profesores</b></span>
+                            <a href="buscar_disponibilidad.php" class="btn btn-warning btn-sm">Ver</a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

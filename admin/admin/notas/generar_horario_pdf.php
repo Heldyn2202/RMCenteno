@@ -11,7 +11,8 @@ if (!$id_horario) {
 
 // Obtener los datos del horario
 $sql_horario = "SELECT h.*, g.grado, g.trayecto, g.trimestre, s.nombre_seccion, s.turno, 
-                ges.nombre as gestion, ges.desde, ges.hasta 
+                CONCAT(DATE_FORMAT(ges.desde, '%d/%m/%Y'), ' - ', DATE_FORMAT(ges.hasta, '%d/%m/%Y')) as gestion, 
+                ges.desde, ges.hasta 
                 FROM horarios h
                 JOIN grados g ON h.id_grado = g.id_grado
                 JOIN secciones s ON h.id_seccion = s.id_seccion
@@ -24,10 +25,10 @@ $horario = $query_horario->fetch(PDO::FETCH_ASSOC);
 
 // Obtener los detalles del horario
 $sql_detalles = "SELECT hd.*, m.nombre_materia, m.codigo, 
-                 CONCAT(p.nombre, ' ', p.apellido) as profesor
+                 CONCAT(p.nombres, ' ', p.apellidos) as profesor
                  FROM horario_detalle hd
                  JOIN materias m ON hd.id_materia = m.id_materia
-                 JOIN profesores p ON hd.id_profesor = p.id_profesor
+                 LEFT JOIN profesores p ON hd.id_profesor = p.id_profesor
                  WHERE hd.id_horario = :id_horario
                  ORDER BY FIELD(hd.dia_semana, 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'),
                  hd.hora_inicio";
@@ -99,7 +100,7 @@ $pdf->Cell(50, 6, $horario['turno'], 0, 0);
 $pdf->SetFont('helvetica', 'B', 10);
 $pdf->Cell(40, 6, 'AULA:', 0, 0);
 $pdf->SetFont('helvetica', '', 10);
-$pdf->Cell(0, 6, 'Aula 45', 0, 1);
+$pdf->Cell(0, 6, htmlspecialchars($horario['aula'] ?? 'No especificada'), 0, 1);
 
 $pdf->SetFont('helvetica', 'B', 10);
 $pdf->Cell(40, 6, 'INICIO:', 0, 0);

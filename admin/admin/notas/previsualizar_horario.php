@@ -4,8 +4,22 @@ include('../../app/config.php');
 $gestion_activa = $pdo->query("SELECT * FROM gestiones WHERE estado = 1 ORDER BY desde DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 
 // Obtener datos para formulario
-$grados = $pdo->query("SELECT * FROM grados ORDER BY trayecto, trimestre")->fetchAll(PDO::FETCH_ASSOC);
-$secciones = $pdo->query("SELECT * FROM secciones ORDER BY nombre_seccion")->fetchAll(PDO::FETCH_ASSOC);
+$grados = $pdo->query(
+    "SELECT * FROM grados
+     ORDER BY CASE
+        WHEN grado LIKE 'Primer Nivel%' THEN 1
+        WHEN grado LIKE 'Segundo Nivel%' THEN 2
+        WHEN grado LIKE 'Tercer Nivel%' THEN 3
+        WHEN grado LIKE 'Primer Grado%' THEN 4
+        WHEN grado LIKE 'Segundo Grado%' THEN 5
+        WHEN grado LIKE 'Tercer Grado%' THEN 6
+        WHEN grado LIKE 'Cuarto Grado%' THEN 7
+        WHEN grado LIKE 'Quinto Grado%' THEN 8
+        WHEN grado LIKE 'Sexto Grado%' THEN 9
+        ELSE 99
+     END, grado"
+)->fetchAll(PDO::FETCH_ASSOC);
+$secciones = $pdo->query("SELECT * FROM secciones ORDER BY nombre_seccion, turno")->fetchAll(PDO::FETCH_ASSOC);
 $materias = $pdo->query("SELECT * FROM materias ORDER BY nombre_materia")->fetchAll(PDO::FETCH_ASSOC);
 $profesores = $pdo->query("SELECT * FROM profesores ORDER BY apellidos, nombres")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -91,7 +105,7 @@ if ($gestion_id) {
 }
 
 if ($gestion) {
-    $gestion_nombre = strtoupper($gestion['nombre_gestion'] ?? 'GESTIÓN SIN NOMBRE');
+    $gestion_nombre = 'PERÍODO ACADÉMICO ' . date('Y', strtotime($gestion['desde']));
     $gestion_rango = " (Desde: " . date('d/m/Y', strtotime($gestion['desde'])) .
                         " - Hasta: " . date('d/m/Y', strtotime($gestion['hasta'])) . ")";
 }
@@ -431,8 +445,8 @@ if (!empty($profesores_ids)) {
                 <strong>TURNO:</strong> <?= $seccion ? strtoupper($seccion['turno']) : 'NO ESPECIFICADO' ?>
             </p>
             <p>
-                <strong>AULA:</strong> <?= strtoupper($aula) ?> | 
-                <strong>VIGENCIA:</strong> <?= date('d/m/Y', strtotime($fecha_inicio)) ?> - <?= date('d/m/Y', strtotime($fecha_fin)) ?>
+                <strong>AULA:</strong> <?= strtoupper($aula ?: 'NO ESPECIFICADA') ?> | 
+                <strong>VIGENCIA:</strong> <?= $fecha_inicio ? date('d/m/Y', strtotime($fecha_inicio)) : 'No especificada' ?> - <?= $fecha_fin ? date('d/m/Y', strtotime($fecha_fin)) : 'No especificada' ?>
             </p>
         </div>
         
