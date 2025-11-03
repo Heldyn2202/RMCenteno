@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .carnet-container {
+            width: 100%;
+            height: 100%;
+            border: 2px solid #003366;
+            position: relative;
+            font-family: Arial, sans-serif;
+        }
+        .header {
+            background-color: #003366;
+            color: white;
+            padding: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .photo-placeholder {
+            width: 30mm;
+            height: 35mm;
+            border: 1px solid #ccc;
+            margin: 5px auto;
+            background-color: #f5f5f5;
+            text-align: center;
+            line-height: 35mm;
+            color: #999;
+        }
+        .student-info {
+            padding: 5px;
+        }
+        .info-row {
+            margin-bottom: 3px;
+            font-size: 10pt;
+        }
+        .label {
+            font-weight: bold;
+            display: inline-block;
+            width: 30mm;
+        }
+        .barcode {
+            text-align: center;
+            margin-top: 5px;
+            font-family: 'Libre Barcode 128', cursive;
+            font-size: 20pt;
+        }
+        .footer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 8pt;
+            color: #666;
+            padding: 2px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="carnet-container">
+        <div class="header">INSTITUCIÓN EDUCATIVA</div>
+        
+        <div class="photo-placeholder">FOTO</div>
+        
+        <div class="student-info">
+            <div class="info-row">
+                <span class="label">Nombre:</span>
+                <span>{{nombre}}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Cédula:</span>
+                <span>{{cedula}}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Nacimiento:</span>
+                <span>{{fecha_nacimiento}}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Código:</span>
+                <span>{{codigo}}</span>
+            </div>
+        </div>
+        
+        <div class="barcode">*{{codigo}}*</div>
+        
+        <div class="footer">
+            Válido hasta: {{fecha_vencimiento}} | www.institucion.edu
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Configuración universal para saltos de línea
+* text=auto eol=lf
+
+# Excepciones para Windows
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Archivos binarios (no modificar)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.min.js binary
+*.jar binary
+*.zip binary
+*.sql binary
+
+# Archivos de texto
+*.sh text eol=lf
+*.md text
+*.json text
+*.php text
+*.html text
+*.css text

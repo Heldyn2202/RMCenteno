@@ -1,0 +1,11 @@
+Matrícula Escolar
+
+Nombre:  
+Período Académico: 
+Nivel: Primaria
+Grado: Desconocido
+Sección: Desconocido
+Turno: Tarde
+Talla de Camisa: 
+Talla de Pantalón: 
+Talla de Zapatos: 
