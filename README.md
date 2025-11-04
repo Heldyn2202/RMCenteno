@@ -25,7 +25,7 @@ Una aplicación web completa desarrollada para automatizar y centralizar la gest
 
 ## 📦 Instalación y Uso
 1. *Clonar el repositorio*:
-en bash, -> git clone https://github.com/Heldyn2202/sistema-gestion-liceo.git
+en bash, -> git clone https://github.com/Heldyn2202/RMCenteno.git
 
 2. *Importar la base de datos*:sige,
    Ejecutar el archivo sige.sql en MySQL
