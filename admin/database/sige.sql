@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 15-10-2025 a las 04:29:54
+-- Tiempo de generación: 04-11-2025 a las 02:32:48
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -20,6 +20,8 @@ SET time_zone = "+00:00";
 --
 -- Base de datos: `sige`
 --
+CREATE DATABASE IF NOT EXISTS `sige` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE `sige`;
 
 -- --------------------------------------------------------
 
@@ -27,6 +29,7 @@ SET time_zone = "+00:00";
 -- Estructura de tabla para la tabla `about_us`
 --
 
+DROP TABLE IF EXISTS `about_us`;
 CREATE TABLE `about_us` (
   `id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
@@ -51,6 +54,7 @@ INSERT INTO `about_us` (`id`, `title`, `content`, `main_image`, `image_alt`, `st
 -- Estructura de tabla para la tabla `academic_page`
 --
 
+DROP TABLE IF EXISTS `academic_page`;
 CREATE TABLE `academic_page` (
   `id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
@@ -73,6 +77,7 @@ INSERT INTO `academic_page` (`id`, `title`, `content`, `banner_image`, `created_
 -- Estructura de tabla para la tabla `academic_programs`
 --
 
+DROP TABLE IF EXISTS `academic_programs`;
 CREATE TABLE `academic_programs` (
   `id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
@@ -101,6 +106,7 @@ INSERT INTO `academic_programs` (`id`, `name`, `level`, `description`, `icon`, `
 -- Estructura de tabla para la tabla `academic_resources`
 --
 
+DROP TABLE IF EXISTS `academic_resources`;
 CREATE TABLE `academic_resources` (
   `id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
@@ -133,6 +139,7 @@ INSERT INTO `academic_resources` (`id`, `title`, `category`, `description`, `url
 -- Estructura de tabla para la tabla `activity_logs`
 --
 
+DROP TABLE IF EXISTS `activity_logs`;
 CREATE TABLE `activity_logs` (
   `id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
@@ -146,6 +153,7 @@ CREATE TABLE `activity_logs` (
 -- Estructura de tabla para la tabla `administrativos`
 --
 
+DROP TABLE IF EXISTS `administrativos`;
 CREATE TABLE `administrativos` (
   `id_administrativo` int(11) NOT NULL,
   `persona_id` int(11) NOT NULL,
@@ -159,11 +167,40 @@ CREATE TABLE `administrativos` (
 --
 
 INSERT INTO `administrativos` (`id_administrativo`, `persona_id`, `fyh_creacion`, `fyh_actualizacion`, `estado`) VALUES
-(1, 4, '2024-10-27 00:00:00', NULL, '1'),
-(2, 22, '2024-12-26 00:00:00', NULL, '1'),
-(4, 24, '2025-01-24 00:00:00', NULL, '0'),
-(5, 26, '2025-01-24 00:00:00', '2025-02-08 00:00:00', '1'),
-(6, 27, '2025-01-24 00:00:00', NULL, '1');
+(7, 28, '2025-10-31 00:00:00', '2025-11-03 00:00:00', '1'),
+(8, 29, '2025-10-31 00:00:00', '2025-11-03 00:00:00', '1');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `asignaciones_profesor`
+--
+
+DROP TABLE IF EXISTS `asignaciones_profesor`;
+CREATE TABLE `asignaciones_profesor` (
+  `id_asignacion` int(11) NOT NULL,
+  `id_profesor` int(11) NOT NULL,
+  `id_materia` int(11) NOT NULL,
+  `id_seccion` int(11) NOT NULL,
+  `id_gestion` int(11) NOT NULL,
+  `estado` tinyint(1) DEFAULT 1 COMMENT '1=Activo, 0=Inactivo',
+  `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `asignaciones_profesor`
+--
+
+INSERT INTO `asignaciones_profesor` (`id_asignacion`, `id_profesor`, `id_materia`, `id_seccion`, `id_gestion`, `estado`, `fecha_creacion`, `fecha_actualizacion`) VALUES
+(52, 3, 3, 98, 34, 1, '2025-10-31 21:42:12', '2025-11-03 22:52:56'),
+(53, 3, 5, 97, 34, 1, '2025-10-31 21:53:40', '2025-10-31 21:53:40'),
+(54, 3, 3, 100, 34, 1, '2025-10-31 21:55:51', '2025-10-31 21:55:51'),
+(55, 3, 4, 100, 34, 1, '2025-10-31 22:07:50', '2025-10-31 22:07:50'),
+(56, 3, 3, 99, 34, 1, '2025-10-31 22:17:44', '2025-10-31 22:17:44'),
+(57, 3, 6, 97, 34, 1, '2025-10-31 22:18:22', '2025-10-31 22:18:22'),
+(58, 3, 1, 100, 34, 1, '2025-10-31 23:40:01', '2025-10-31 23:40:01'),
+(59, 4, 3, 98, 34, 1, '2025-11-01 05:50:30', '2025-11-01 05:50:30');
 
 -- --------------------------------------------------------
 
@@ -171,6 +208,7 @@ INSERT INTO `administrativos` (`id_administrativo`, `persona_id`, `fyh_creacion`
 -- Estructura de tabla para la tabla `calendario_academico`
 --
 
+DROP TABLE IF EXISTS `calendario_academico`;
 CREATE TABLE `calendario_academico` (
   `id` int(11) NOT NULL,
   `evento` varchar(255) NOT NULL,
@@ -210,6 +248,7 @@ INSERT INTO `calendario_academico` (`id`, `evento`, `tipo_evento`, `fecha_inicio
 -- Estructura de tabla para la tabla `carnets_emitidos`
 --
 
+DROP TABLE IF EXISTS `carnets_emitidos`;
 CREATE TABLE `carnets_emitidos` (
   `id_emision` int(11) NOT NULL,
   `id_estudiante` int(11) NOT NULL,
@@ -225,6 +264,7 @@ CREATE TABLE `carnets_emitidos` (
 -- Estructura de tabla para la tabla `carnets_estudiantiles`
 --
 
+DROP TABLE IF EXISTS `carnets_estudiantiles`;
 CREATE TABLE `carnets_estudiantiles` (
   `id_carnet` int(11) NOT NULL,
   `id_estudiante` int(11) NOT NULL,
@@ -242,6 +282,7 @@ CREATE TABLE `carnets_estudiantiles` (
 -- Estructura de tabla para la tabla `carrusel`
 --
 
+DROP TABLE IF EXISTS `carrusel`;
 CREATE TABLE `carrusel` (
   `id` int(11) NOT NULL,
   `titulo` varchar(255) NOT NULL,
@@ -266,6 +307,7 @@ INSERT INTO `carrusel` (`id`, `titulo`, `descripcion`, `imagen_path`, `fecha_ini
 -- Estructura de tabla para la tabla `chat_conexiones`
 --
 
+DROP TABLE IF EXISTS `chat_conexiones`;
 CREATE TABLE `chat_conexiones` (
   `id_conexion` int(11) NOT NULL,
   `id_usuario` int(11) NOT NULL,
@@ -280,6 +322,7 @@ CREATE TABLE `chat_conexiones` (
 -- Estructura de tabla para la tabla `chat_mensajes`
 --
 
+DROP TABLE IF EXISTS `chat_mensajes`;
 CREATE TABLE `chat_mensajes` (
   `id_mensaje` int(11) NOT NULL,
   `id_remitente` int(11) NOT NULL,
@@ -288,17 +331,42 @@ CREATE TABLE `chat_mensajes` (
   `archivo` varchar(255) DEFAULT NULL,
   `fecha_envio` datetime DEFAULT current_timestamp(),
   `leido` tinyint(1) DEFAULT 0,
-  `estado` tinyint(1) DEFAULT 1
+  `estado` tinyint(1) DEFAULT 1,
+  `editado` enum('0','1') DEFAULT '0',
+  `reacciones` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`reacciones`)),
+  `fecha_edicion` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `chat_mensajes`
 --
 
-INSERT INTO `chat_mensajes` (`id_mensaje`, `id_remitente`, `id_destinatario`, `mensaje`, `archivo`, `fecha_envio`, `leido`, `estado`) VALUES
-(0, 1, 75, 'Hola Buenas noches', NULL, '2025-10-14 22:06:39', 1, 1),
-(0, 75, 1, 'Buenas noches administrador como esta', NULL, '2025-10-14 22:10:05', 1, 1),
-(0, 1, 75, '', 'app/uploads/1_20251014_222135_85a4abcb.png', '2025-10-14 22:21:35', 0, 1);
+INSERT INTO `chat_mensajes` (`id_mensaje`, `id_remitente`, `id_destinatario`, `mensaje`, `archivo`, `fecha_envio`, `leido`, `estado`, `editado`, `reacciones`, `fecha_edicion`) VALUES
+(1, 1, 75, 'Hola Buenas noches', NULL, '2025-10-14 22:06:39', 1, 1, '0', NULL, NULL),
+(2, 75, 1, 'Buenas noches administrador como esta', NULL, '2025-10-14 22:10:05', 1, 1, '0', NULL, NULL),
+(3, 1, 75, '', 'app/uploads/1_20251014_222135_85a4abcb.png', '2025-10-14 22:21:35', 1, 1, '0', NULL, NULL),
+(4, 1, 75, '', 'app/uploads/agustinzamora_20251016_160218_98d8f0f5.jpg', '2025-10-16 16:02:18', 1, 1, '0', '[]', NULL),
+(5, 1, 75, 'Hola', NULL, '2025-10-16 16:03:05', 1, 1, '0', '[]', NULL),
+(6, 1, 75, 'hola', NULL, '2025-10-16 16:03:17', 1, 1, '0', '[]', NULL),
+(7, 1, 75, 'holaaa', NULL, '2025-10-16 16:04:54', 1, 1, '0', '[]', NULL),
+(8, 1, 75, '', 'app/uploads/673cb963-e1e1-4996-97bb-5897de8c55d3_20251016_160517_d65b98de.jfif', '2025-10-16 16:05:17', 1, 1, '0', '[]', NULL),
+(9, 76, 1, 'hola', NULL, '2025-11-03 13:17:05', 1, 1, '0', '[]', NULL),
+(10, 76, 1, '', 'app/uploads/escudo_20251103_131745_fb07eacf.jfif', '2025-11-03 13:17:45', 1, 1, '0', '[]', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `chat_reacciones`
+--
+
+DROP TABLE IF EXISTS `chat_reacciones`;
+CREATE TABLE `chat_reacciones` (
+  `id_reaccion` int(11) NOT NULL,
+  `id_mensaje` int(11) NOT NULL,
+  `id_usuario` int(11) NOT NULL,
+  `tipo_reaccion` enum('like','love','haha','wow','sad','angry') NOT NULL,
+  `fecha_reaccion` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -306,6 +374,7 @@ INSERT INTO `chat_mensajes` (`id_mensaje`, `id_remitente`, `id_destinatario`, `m
 -- Estructura de tabla para la tabla `citas_nacimiento`
 --
 
+DROP TABLE IF EXISTS `citas_nacimiento`;
 CREATE TABLE `citas_nacimiento` (
   `id` int(11) NOT NULL,
   `nombre_completo` varchar(255) NOT NULL,
@@ -334,6 +403,7 @@ INSERT INTO `citas_nacimiento` (`id`, `nombre_completo`, `cedula`, `telefono`, `
 -- Estructura de tabla para la tabla `collaborators`
 --
 
+DROP TABLE IF EXISTS `collaborators`;
 CREATE TABLE `collaborators` (
   `id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
@@ -357,6 +427,7 @@ INSERT INTO `collaborators` (`id`, `name`, `logo`, `website`, `status`, `created
 -- Estructura de tabla para la tabla `configuracion_instituciones`
 --
 
+DROP TABLE IF EXISTS `configuracion_instituciones`;
 CREATE TABLE `configuracion_instituciones` (
   `id_config_institucion` int(11) NOT NULL,
   `nombre_institucion` varchar(255) NOT NULL,
@@ -384,6 +455,7 @@ INSERT INTO `configuracion_instituciones` (`id_config_institucion`, `nombre_inst
 -- Estructura de tabla para la tabla `config_carnets`
 --
 
+DROP TABLE IF EXISTS `config_carnets`;
 CREATE TABLE `config_carnets` (
   `id_config` int(11) NOT NULL,
   `universidad_linea1` varchar(100) NOT NULL,
@@ -407,6 +479,7 @@ CREATE TABLE `config_carnets` (
 -- Estructura de tabla para la tabla `contactos`
 --
 
+DROP TABLE IF EXISTS `contactos`;
 CREATE TABLE `contactos` (
   `id` int(11) NOT NULL,
   `nombre` varchar(255) NOT NULL,
@@ -424,6 +497,7 @@ CREATE TABLE `contactos` (
 -- Estructura de tabla para la tabla `datos_institucion`
 --
 
+DROP TABLE IF EXISTS `datos_institucion`;
 CREATE TABLE `datos_institucion` (
   `id_institucion` int(11) NOT NULL,
   `nombre_institucion` varchar(100) NOT NULL,
@@ -441,6 +515,7 @@ CREATE TABLE `datos_institucion` (
 -- Estructura de tabla para la tabla `diseno_carnets`
 --
 
+DROP TABLE IF EXISTS `diseno_carnets`;
 CREATE TABLE `diseno_carnets` (
   `id_diseno` int(11) NOT NULL,
   `nombre_diseno` varchar(100) NOT NULL DEFAULT 'Predeterminado',
@@ -485,6 +560,7 @@ INSERT INTO `diseno_carnets` (`id_diseno`, `nombre_diseno`, `logo_path`, `logo_p
 -- Estructura de tabla para la tabla `docentes`
 --
 
+DROP TABLE IF EXISTS `docentes`;
 CREATE TABLE `docentes` (
   `id_docente` int(11) NOT NULL,
   `persona_id` int(11) NOT NULL,
@@ -495,20 +571,13 @@ CREATE TABLE `docentes` (
   `estado` varchar(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Volcado de datos para la tabla `docentes`
---
-
-INSERT INTO `docentes` (`id_docente`, `persona_id`, `especialidad`, `antiguedad`, `fyh_creacion`, `fyh_actualizacion`, `estado`) VALUES
-(2, 3, 'INFORMATICA', '2 años', '2024-10-27', '2024-10-30', '1'),
-(3, 14, 'Licenciado ed', '5', '2024-10-28', NULL, '1');
-
 -- --------------------------------------------------------
 
 --
 -- Estructura de tabla para la tabla `documento`
 --
 
+DROP TABLE IF EXISTS `documento`;
 CREATE TABLE `documento` (
   `id` int(11) NOT NULL,
   `descripcion` varchar(250) NOT NULL,
@@ -521,6 +590,7 @@ CREATE TABLE `documento` (
 -- Estructura de tabla para la tabla `documentos`
 --
 
+DROP TABLE IF EXISTS `documentos`;
 CREATE TABLE `documentos` (
   `id` int(11) NOT NULL,
   `nombre` varchar(255) NOT NULL,
@@ -549,6 +619,7 @@ INSERT INTO `documentos` (`id`, `nombre`, `tipo`, `descripcion`, `archivo`, `tip
 -- Estructura de tabla para la tabla `documentos_internos`
 --
 
+DROP TABLE IF EXISTS `documentos_internos`;
 CREATE TABLE `documentos_internos` (
   `id` int(11) NOT NULL,
   `nombre` varchar(255) NOT NULL,
@@ -577,6 +648,7 @@ INSERT INTO `documentos_internos` (`id`, `nombre`, `tipo`, `descripcion`, `archi
 -- Estructura de tabla para la tabla `estudiantes`
 --
 
+DROP TABLE IF EXISTS `estudiantes`;
 CREATE TABLE `estudiantes` (
   `id_estudiante` int(11) NOT NULL,
   `tipo_cedula` varchar(50) NOT NULL,
@@ -679,6 +751,7 @@ INSERT INTO `estudiantes` (`id_estudiante`, `tipo_cedula`, `cedula`, `cedula_esc
 -- Estructura de tabla para la tabla `gestiones`
 --
 
+DROP TABLE IF EXISTS `gestiones`;
 CREATE TABLE `gestiones` (
   `id_gestion` int(11) NOT NULL,
   `desde` date NOT NULL,
@@ -693,7 +766,9 @@ CREATE TABLE `gestiones` (
 --
 
 INSERT INTO `gestiones` (`id_gestion`, `desde`, `hasta`, `fyh_creacion`, `fyh_actualizacion`, `estado`) VALUES
-(1, '2025-07-13', '2026-05-18', '2023-12-28', '2025-01-24', '1');
+(1, '2026-07-08', '2027-06-15', '2023-12-28', '2025-10-21', '0'),
+(33, '2025-10-14', '2026-10-05', '2025-10-16', '2025-10-21', '0'),
+(34, '2025-10-31', '2026-09-14', '2025-10-31', NULL, '1');
 
 -- --------------------------------------------------------
 
@@ -701,6 +776,7 @@ INSERT INTO `gestiones` (`id_gestion`, `desde`, `hasta`, `fyh_creacion`, `fyh_ac
 -- Estructura de tabla para la tabla `grados`
 --
 
+DROP TABLE IF EXISTS `grados`;
 CREATE TABLE `grados` (
   `id_grado` int(11) NOT NULL,
   `nivel` varchar(20) NOT NULL,
@@ -716,33 +792,8 @@ CREATE TABLE `grados` (
 --
 
 INSERT INTO `grados` (`id_grado`, `nivel`, `grado`, `estado`, `fyh_creacion`, `trayecto`, `trimestre`) VALUES
-(19, 'Inicial', 'Primer Nivel', 1, '2025-01-21 09:00:55', '', ''),
-(20, 'Inicial', 'Segundo Nivel', 1, '2025-01-21 09:00:55', '', ''),
-(21, 'Inicial', 'Tercer Nivel', 1, '2025-01-21 09:00:55', '', ''),
-(22, 'Primaria', 'Primer Grado', 1, '2025-01-21 09:00:55', '', ''),
-(23, 'Primaria', 'Segundo Grado', 1, '2025-01-21 09:00:55', '', ''),
-(24, 'Primaria', 'Tercer Grado', 1, '2025-01-21 09:00:55', '', ''),
-(25, 'Primaria', 'Cuarto Grado', 1, '2025-01-21 09:00:55', '', ''),
-(26, 'Primaria', 'Quinto Grado', 1, '2025-01-21 09:00:55', '', ''),
-(27, 'Primaria', 'Sexto Grado', 1, '2025-01-21 09:00:55', '', ''),
-(28, 'Secundaria', 'Primer Año', 1, '2025-08-25 12:36:41', 'Primer Trayecto', '1'),
-(29, 'Secundaria', 'Primer Año', 1, '2025-08-25 12:36:41', 'Primer Trayecto', '2'),
-(30, 'Secundaria', 'Primer Año', 1, '2025-08-25 12:36:41', 'Primer Trayecto', '3'),
-(31, 'Secundaria', 'Segundo Año', 1, '2025-08-25 12:36:41', 'Primer Trayecto', '1'),
-(32, 'Secundaria', 'Segundo Año', 1, '2025-08-25 12:36:41', 'Primer Trayecto', '2'),
-(33, 'Secundaria', 'Segundo Año', 1, '2025-08-25 12:36:41', 'Primer Trayecto', '3'),
-(34, 'Secundaria', 'Tercer Año', 1, '2025-08-25 12:36:41', 'Segundo Trayecto', '1'),
-(35, 'Secundaria', 'Tercer Año', 1, '2025-08-25 12:36:41', 'Segundo Trayecto', '2'),
-(36, 'Secundaria', 'Tercer Año', 1, '2025-08-25 12:36:41', 'Segundo Trayecto', '3'),
-(37, 'Secundaria', 'Cuarto Año', 1, '2025-08-25 12:36:41', 'Segundo Trayecto', '1'),
-(38, 'Secundaria', 'Cuarto Año', 1, '2025-08-25 12:36:41', 'Segundo Trayecto', '2'),
-(39, 'Secundaria', 'Cuarto Año', 1, '2025-08-25 12:36:41', 'Segundo Trayecto', '3'),
-(40, 'Secundaria', 'Quinto Año', 1, '2025-08-25 12:36:41', 'Tercer Trayecto', '1'),
-(41, 'Secundaria', 'Quinto Año', 1, '2025-08-25 12:36:41', 'Tercer Trayecto', '2'),
-(42, 'Secundaria', 'Quinto Año', 1, '2025-08-25 12:36:41', 'Tercer Trayecto', '3'),
-(43, 'Secundaria', 'Sexto Año', 1, '2025-08-25 12:36:41', 'Tercer Trayecto', '1'),
-(44, 'Secundaria', 'Sexto Año', 1, '2025-08-25 12:36:41', 'Tercer Trayecto', '2'),
-(45, 'Secundaria', 'Sexto Año', 1, '2025-08-25 12:36:41', 'Tercer Trayecto', '3');
+(50, 'Secundaria', 'PRIMER AÑO', 1, '2025-10-31 17:24:09', '', ''),
+(51, 'Secundaria', 'SEGUNDO AÑO', 1, '2025-10-31 17:24:37', '', '');
 
 -- --------------------------------------------------------
 
@@ -750,6 +801,7 @@ INSERT INTO `grados` (`id_grado`, `nivel`, `grado`, `estado`, `fyh_creacion`, `t
 -- Estructura de tabla para la tabla `grados_materias`
 --
 
+DROP TABLE IF EXISTS `grados_materias`;
 CREATE TABLE `grados_materias` (
   `id` int(11) NOT NULL,
   `id_grado` int(11) NOT NULL,
@@ -759,9 +811,84 @@ CREATE TABLE `grados_materias` (
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `historial_cambios_notas`
+--
+
+DROP TABLE IF EXISTS `historial_cambios_notas`;
+CREATE TABLE `historial_cambios_notas` (
+  `id_historial` int(11) NOT NULL,
+  `id_nota` int(11) DEFAULT NULL,
+  `id_estudiante` int(11) DEFAULT NULL,
+  `id_materia` int(11) DEFAULT NULL,
+  `id_lapso` int(11) DEFAULT NULL,
+  `nota_anterior` decimal(4,2) DEFAULT NULL,
+  `nota_nueva` decimal(4,2) DEFAULT NULL,
+  `id_profesor` int(11) DEFAULT NULL,
+  `fecha_cambio` timestamp NOT NULL DEFAULT current_timestamp(),
+  `motivo_cambio` text DEFAULT NULL,
+  `ip_cambio` varchar(45) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `historial_notas`
+--
+
+DROP TABLE IF EXISTS `historial_notas`;
+CREATE TABLE `historial_notas` (
+  `id_historial` bigint(20) UNSIGNED NOT NULL,
+  `id_nota` int(11) NOT NULL,
+  `id_estudiante` int(11) NOT NULL,
+  `id_materia` int(11) NOT NULL,
+  `id_lapso` int(11) NOT NULL,
+  `calificacion_anterior` decimal(5,2) DEFAULT NULL,
+  `calificacion_nueva` decimal(5,2) NOT NULL,
+  `observaciones_anterior` text DEFAULT NULL,
+  `observaciones_nueva` text DEFAULT NULL,
+  `fecha_cambio` timestamp NOT NULL DEFAULT current_timestamp(),
+  `usuario_cambio` varchar(255) NOT NULL,
+  `tipo_cambio` varchar(50) NOT NULL,
+  `estado` tinyint(1) NOT NULL DEFAULT 1,
+  `fecha_creacion` timestamp NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `historial_notas`
+--
+
+INSERT INTO `historial_notas` (`id_historial`, `id_nota`, `id_estudiante`, `id_materia`, `id_lapso`, `calificacion_anterior`, `calificacion_nueva`, `observaciones_anterior`, `observaciones_nueva`, `fecha_cambio`, `usuario_cambio`, `tipo_cambio`, `estado`, `fecha_creacion`, `fecha_actualizacion`) VALUES
+(86, 54, 10, 4, 4, 10.00, 20.00, 'Error de tipificacion', 'Error de tipificacion', '2025-10-21 19:43:25', 'Heldyn David Diaz Daboin', 'ACTUALIZACION', 1, '2025-10-21 19:43:25', '2025-10-21 19:43:25'),
+(87, 57, 19, 5, 4, NULL, 20.00, NULL, '', '2025-10-22 00:13:29', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-10-22 00:13:29', '2025-10-22 00:13:29'),
+(88, 58, 20, 5, 4, NULL, 20.00, NULL, '', '2025-10-22 00:13:29', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-10-22 00:13:29', '2025-10-22 00:13:29'),
+(89, 52, 19, 3, 4, 14.00, 18.00, 'error', '', '2025-10-22 00:15:45', 'Heldyn David Diaz Daboin', 'ACTUALIZACION', 1, '2025-10-22 00:15:45', '2025-10-22 00:15:45'),
+(90, 52, 19, 3, 4, 18.00, 20.00, '', 'Error de tipificacion', '2025-10-22 00:17:54', 'Heldyn David Diaz Daboin', 'ACTUALIZACION', 1, '2025-10-22 00:17:54', '2025-10-22 00:17:54'),
+(91, 59, 3, 3, 6, NULL, 20.00, NULL, '', '2025-11-01 03:49:11', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-01 03:49:11', '2025-11-01 03:49:11'),
+(92, 59, 3, 3, 6, 20.00, 0.00, '', 'errorrr', '2025-11-01 03:50:30', 'Heldyn David Diaz Daboin', 'ACTUALIZACION', 1, '2025-11-01 03:50:30', '2025-11-01 03:50:30'),
+(93, 59, 3, 3, 6, 0.00, 20.00, 'errorrr', 'error', '2025-11-01 04:07:00', 'Heldyn David Diaz Daboin', 'ACTUALIZACION', 1, '2025-11-01 04:07:00', '2025-11-01 04:07:00'),
+(94, 60, 3, 3, 7, NULL, 15.00, NULL, '', '2025-11-01 04:07:13', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-01 04:07:13', '2025-11-01 04:07:13'),
+(95, 61, 3, 3, 8, NULL, 18.00, NULL, '', '2025-11-01 04:07:23', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-01 04:07:23', '2025-11-01 04:07:23'),
+(96, 62, 3, 4, 8, NULL, 15.00, NULL, '', '2025-11-01 04:07:33', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-01 04:07:33', '2025-11-01 04:07:33'),
+(97, 63, 3, 4, 7, NULL, 19.00, NULL, '', '2025-11-01 04:07:46', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-01 04:07:46', '2025-11-01 04:07:46'),
+(98, 64, 3, 4, 6, NULL, 18.00, NULL, '', '2025-11-01 04:07:57', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-01 04:07:57', '2025-11-01 04:07:57'),
+(99, 65, 3, 1, 6, NULL, 16.00, NULL, '', '2025-11-01 04:08:09', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-01 04:08:09', '2025-11-01 04:08:09'),
+(100, 66, 3, 1, 7, NULL, 20.00, NULL, '', '2025-11-01 04:08:18', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-01 04:08:18', '2025-11-01 04:08:18'),
+(101, 67, 3, 1, 8, NULL, 2.00, NULL, '', '2025-11-01 04:08:26', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-01 04:08:26', '2025-11-01 04:08:26'),
+(102, 68, 10, 3, 6, NULL, 15.00, NULL, '', '2025-11-01 05:52:42', 'Saned Arya Diaz Daboin', 'CREACION', 1, '2025-11-01 05:52:42', '2025-11-01 05:52:42'),
+(103, 69, 80, 3, 6, NULL, 20.00, NULL, '', '2025-11-03 00:12:05', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-03 00:12:05', '2025-11-03 00:12:05'),
+(104, 59, 3, 3, 6, 20.00, 20.00, 'error', '', '2025-11-03 00:12:05', 'Heldyn David Diaz Daboin', 'ACTUALIZACION', 1, '2025-11-03 00:12:05', '2025-11-03 00:12:05'),
+(105, 70, 80, 4, 6, NULL, 20.00, NULL, '', '2025-11-03 00:12:41', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-03 00:12:41', '2025-11-03 00:12:41'),
+(106, 71, 80, 1, 7, NULL, 20.00, NULL, '', '2025-11-03 00:14:36', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-03 00:14:36', '2025-11-03 00:14:36'),
+(107, 72, 81, 3, 6, NULL, 15.00, NULL, '', '2025-11-03 15:16:03', 'Heldyn David Diaz Daboin', 'CREACION', 1, '2025-11-03 15:16:03', '2025-11-03 15:16:03');
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `horarios`
 --
 
+DROP TABLE IF EXISTS `horarios`;
 CREATE TABLE `horarios` (
   `id_horario` int(11) NOT NULL,
   `id_gestion` int(11) NOT NULL,
@@ -769,18 +896,18 @@ CREATE TABLE `horarios` (
   `id_seccion` int(11) NOT NULL,
   `aula` varchar(20) NOT NULL,
   `fecha_inicio` date NOT NULL,
-  `fecha_fin` date NOT NULL
+  `fecha_fin` date NOT NULL,
+  `estado` varchar(20) NOT NULL DEFAULT 'BORRADOR',
+  `aprobado_por` int(11) DEFAULT NULL,
+  `aprobado_en` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `horarios`
 --
 
-INSERT INTO `horarios` (`id_horario`, `id_gestion`, `id_grado`, `id_seccion`, `aula`, `fecha_inicio`, `fecha_fin`) VALUES
-(1, 1, 19, 45, 'Aula 101', '2025-05-04', '2025-06-04'),
-(2, 1, 19, 45, 'Aula 101', '2025-05-04', '2025-06-04'),
-(3, 1, 19, 45, 'Aula 101', '2025-05-04', '2025-06-04'),
-(4, 1, 19, 45, 'Aula 101', '2025-05-04', '2025-06-04');
+INSERT INTO `horarios` (`id_horario`, `id_gestion`, `id_grado`, `id_seccion`, `aula`, `fecha_inicio`, `fecha_fin`, `estado`, `aprobado_por`, `aprobado_en`) VALUES
+(1, 34, 50, 98, '', '2025-11-04', '2025-10-29', 'PUBLICADO', 1, '2025-11-03 15:48:15');
 
 -- --------------------------------------------------------
 
@@ -788,6 +915,7 @@ INSERT INTO `horarios` (`id_horario`, `id_gestion`, `id_grado`, `id_seccion`, `a
 -- Estructura de tabla para la tabla `horario_detalle`
 --
 
+DROP TABLE IF EXISTS `horario_detalle`;
 CREATE TABLE `horario_detalle` (
   `id_detalle` int(11) NOT NULL,
   `id_horario` int(11) NOT NULL,
@@ -803,7 +931,6 @@ CREATE TABLE `horario_detalle` (
 --
 
 INSERT INTO `horario_detalle` (`id_detalle`, `id_horario`, `dia_semana`, `hora_inicio`, `hora_fin`, `id_materia`, `id_profesor`) VALUES
-(1, 1, 'Lunes', '07:50:00', '08:30:00', 3, 1),
 (3, 2, 'Lunes', '07:50:00', '08:30:00', 3, 1),
 (5, 3, 'Lunes', '07:50:00', '08:30:00', 3, 1),
 (7, 4, 'Lunes', '07:50:00', '08:30:00', 3, 1);
@@ -814,6 +941,7 @@ INSERT INTO `horario_detalle` (`id_detalle`, `id_horario`, `dia_semana`, `hora_i
 -- Estructura de tabla para la tabla `inscripciones`
 --
 
+DROP TABLE IF EXISTS `inscripciones`;
 CREATE TABLE `inscripciones` (
   `id` int(11) NOT NULL,
   `id_gestion` varchar(50) NOT NULL,
@@ -836,44 +964,11 @@ CREATE TABLE `inscripciones` (
 --
 
 INSERT INTO `inscripciones` (`id`, `id_gestion`, `nivel_id`, `grado`, `nombre_seccion`, `turno_id`, `talla_camisa`, `talla_pantalon`, `talla_zapatos`, `id_estudiante`, `created_at`, `updated_at`, `estado`, `id_seccion`) VALUES
-(190, '1', 'Primaria', '22', 'A', 'M', 'S', '10', '24', 1, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 48),
-(191, '1', 'Primaria', '22', 'A', 'M', 'M', '14', '26', 2, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 48),
-(192, '1', 'Primaria', '22', 'B', 'M', 'L', '16', '28', 3, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 49),
-(193, '1', 'Primaria', '22', 'B', 'M', 'XL', '26', '30', 4, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 49),
-(194, '1', 'Primaria', '22', 'C', 'M', 'XS', '28', '32', 5, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 50),
-(195, '1', 'Primaria', '22', 'C', 'M', 'SS', '30', '24', 6, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 50),
-(196, '1', 'Primaria', '23', 'A', 'M', 'S', '10', '24', 7, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 54),
-(197, '1', 'Primaria', '23', 'A', 'M', 'M', '14', '26', 8, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 54),
-(198, '1', 'Primaria', '23', 'B', 'M', 'L', '16', '28', 9, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 55),
-(199, '1', 'Primaria', '23', 'B', 'M', 'XL', '26', '30', 10, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 55),
-(200, '1', 'Primaria', '23', 'C', 'M', 'XS', '28', '32', 11, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 56),
-(201, '1', 'Primaria', '23', 'C', 'M', 'SS', '30', '24', 12, '2025-01-24 18:38:16', '2025-01-24 18:38:16', '1', 56),
-(202, '1', 'Primaria', '24', 'A', 'M', 'S', '10', '24', 13, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 60),
-(203, '1', 'Primaria', '24', 'A', 'M', 'M', '14', '26', 14, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 60),
-(204, '1', 'Primaria', '24', 'B', 'M', 'L', '16', '28', 15, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 61),
-(205, '1', 'Primaria', '24', 'B', 'M', 'XL', '26', '30', 16, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 61),
-(206, '1', 'Primaria', '24', 'C', 'M', 'XS', '28', '32', 17, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 62),
-(207, '1', 'Primaria', '24', 'C', 'M', 'SS', '30', '24', 18, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 62),
-(208, '1', 'Primaria', '25', 'A', 'M', 'S', '10', '24', 19, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 66),
-(209, '1', 'Primaria', '25', 'A', 'M', 'M', '14', '26', 20, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 66),
-(210, '1', 'Primaria', '25', 'B', 'M', 'L', '16', '28', 21, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 67),
-(211, '1', 'Primaria', '25', 'B', 'M', 'XL', '26', '30', 22, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 67),
-(212, '1', 'Primaria', '25', 'C', 'M', 'XS', '28', '32', 23, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 68),
-(213, '1', 'Primaria', '25', 'C', 'M', 'SS', '30', '24', 24, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 68),
-(214, '1', 'Primaria', '26', 'A', 'M', 'S', '10', '24', 25, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 72),
-(215, '1', 'Primaria', '26', 'A', 'M', 'M', '14', '26', 26, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 72),
-(216, '1', 'Primaria', '26', 'B', 'M', 'L', '16', '28', 27, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 73),
-(217, '1', 'Primaria', '26', 'B', 'M', 'XL', '26', '30', 28, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 73),
-(218, '1', 'Primaria', '26', 'C', 'M', 'XS', '28', '32', 29, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 74),
-(219, '1', 'Primaria', '26', 'C', 'M', 'SS', '30', '24', 30, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 74),
-(220, '1', 'Primaria', '27', 'A', 'M', 'S', '10', '24', 31, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 78),
-(221, '1', 'Primaria', '27', 'A', 'M', 'M', '14', '26', 32, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 78),
-(222, '1', 'Primaria', '27', 'B', 'M', 'L', '16', '28', 33, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 79),
-(223, '1', 'Primaria', '27', 'B', 'M', 'XL', '26', '30', 34, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 79),
-(224, '1', 'Primaria', '27', 'C', 'M', 'XS', '28', '32', 35, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 80),
-(225, '1', 'Primaria', '27', 'C', 'M', 'SS', '30', '24', 36, '2025-01-24 18:38:17', '2025-01-24 18:38:17', '1', 80),
-(226, '1', 'Secundaria', '28', 'A', 'M', '12', '8', '36', 80, '2025-08-25 19:45:25', '2025-08-25 19:45:25', 'activo', 84),
-(227, '1', 'Inicial', '19', 'A', 'M', '8', '8', '12', 81, '2025-08-25 19:51:01', '2025-08-25 19:51:01', 'activo', 45);
+(238, '34', 'Secundaria', '51', 'B', 'M', 'S', '14', '26', 3, '2025-10-31 21:29:50', '2025-10-31 21:29:50', 'activo', 100),
+(239, '34', 'Secundaria', '50', 'A', 'M', 'S', 'S', '25', 10, '2025-10-31 23:52:16', '2025-10-31 23:52:16', 'activo', 98),
+(240, '34', 'Secundaria', '51', 'B', 'M', 'S', 'S', '25', 7, '2025-11-01 04:48:11', '2025-11-01 04:48:11', 'activo', 100),
+(241, '34', 'Secundaria', '51', 'B', 'M', 'S', '14', '30', 80, '2025-11-01 04:48:33', '2025-11-01 04:48:33', 'activo', 100),
+(242, '34', 'Secundaria', '51', 'B', 'M', 'S', '14', '30', 81, '2025-11-01 04:48:52', '2025-11-01 04:48:52', 'activo', 100);
 
 -- --------------------------------------------------------
 
@@ -881,6 +976,7 @@ INSERT INTO `inscripciones` (`id`, `id_gestion`, `nivel_id`, `grado`, `nombre_se
 -- Estructura de tabla para la tabla `lapsos`
 --
 
+DROP TABLE IF EXISTS `lapsos`;
 CREATE TABLE `lapsos` (
   `id_lapso` int(11) NOT NULL,
   `nombre_lapso` varchar(50) NOT NULL,
@@ -896,7 +992,12 @@ CREATE TABLE `lapsos` (
 INSERT INTO `lapsos` (`id_lapso`, `nombre_lapso`, `fecha_inicio`, `fecha_fin`, `id_gestion`) VALUES
 (1, 'Primer lapso', '2024-10-01', '2025-02-07', 1),
 (2, 'Segundo lapso', '2025-02-17', '2025-04-25', 1),
-(3, 'Tercer lapso', '2025-05-05', '2025-07-25', 1);
+(3, 'Tercer lapso', '2025-05-05', '2025-07-25', 1),
+(4, 'Primer lapso', '2025-10-20', '2025-10-21', 33),
+(5, 'Segundo Lapso', '2025-10-14', '2025-10-14', 33),
+(6, 'Primer lapso', '2025-10-22', '2025-11-01', 34),
+(7, 'Segundo Lapso', '2026-01-15', '2026-02-19', 34),
+(8, 'Tercer Lapso', '2028-09-21', '2028-10-26', 34);
 
 -- --------------------------------------------------------
 
@@ -904,6 +1005,7 @@ INSERT INTO `lapsos` (`id_lapso`, `nombre_lapso`, `fecha_inicio`, `fecha_fin`, `
 -- Estructura de tabla para la tabla `materias`
 --
 
+DROP TABLE IF EXISTS `materias`;
 CREATE TABLE `materias` (
   `id_materia` int(11) NOT NULL,
   `nombre_materia` varchar(100) NOT NULL,
@@ -933,6 +1035,7 @@ INSERT INTO `materias` (`id_materia`, `nombre_materia`, `id_grado`, `nivel_educa
 -- Estructura de tabla para la tabla `niveles`
 --
 
+DROP TABLE IF EXISTS `niveles`;
 CREATE TABLE `niveles` (
   `id_nivel` int(11) NOT NULL,
   `gestion_id` int(11) NOT NULL,
@@ -955,6 +1058,7 @@ INSERT INTO `niveles` (`id_nivel`, `gestion_id`, `nivel`, `fyh_creacion`, `fyh_a
 -- Estructura de tabla para la tabla `notas_estudiantes`
 --
 
+DROP TABLE IF EXISTS `notas_estudiantes`;
 CREATE TABLE `notas_estudiantes` (
   `id_nota` int(11) NOT NULL,
   `id_estudiante` int(11) NOT NULL,
@@ -970,7 +1074,7 @@ CREATE TABLE `notas_estudiantes` (
 --
 
 INSERT INTO `notas_estudiantes` (`id_nota`, `id_estudiante`, `id_materia`, `id_lapso`, `calificacion`, `observaciones`, `fecha_registro`) VALUES
-(1, 1, 1, 1, 18.00, NULL, '2025-04-15 02:20:07'),
+(1, 1, 1, 1, 19.00, NULL, '2025-04-15 02:20:07'),
 (2, 10, 1, 1, 14.00, NULL, '2025-04-15 03:40:00'),
 (3, 1, 3, 1, 5.00, NULL, '2025-05-11 18:11:48'),
 (4, 1, 1, 2, 12.00, NULL, '2025-05-11 18:12:36'),
@@ -1003,7 +1107,45 @@ INSERT INTO `notas_estudiantes` (`id_nota`, `id_estudiante`, `id_materia`, `id_l
 (31, 81, 6, 2, 5.00, NULL, '2025-08-25 16:27:35'),
 (32, 81, 1, 3, 12.00, NULL, '2025-08-25 16:28:04'),
 (33, 81, 3, 3, 15.00, NULL, '2025-08-25 16:28:04'),
-(34, 81, 6, 3, 10.00, NULL, '2025-08-25 16:28:04');
+(34, 81, 6, 3, 10.00, NULL, '2025-08-25 16:28:04'),
+(35, 32, 3, 4, 20.00, NULL, '2025-10-20 18:21:48'),
+(36, 31, 3, 4, 20.00, NULL, '2025-10-20 18:21:48'),
+(37, 32, 6, 4, 11.00, NULL, '2025-10-20 18:21:43'),
+(38, 31, 6, 4, 15.00, NULL, '2025-10-20 18:21:43'),
+(39, 19, 4, 4, 20.00, NULL, '2025-10-20 18:32:28'),
+(40, 20, 4, 4, 20.00, NULL, '2025-10-20 18:32:28'),
+(41, 21, 3, 4, 20.00, NULL, '2025-10-20 18:32:57'),
+(42, 22, 3, 4, 20.00, NULL, '2025-10-20 18:32:57'),
+(43, 21, 5, 4, 10.00, '', '2025-10-20 22:44:59'),
+(44, 22, 5, 4, 13.00, '', '2025-10-20 22:45:24'),
+(45, 21, 4, 4, 20.00, NULL, '2025-10-20 18:33:29'),
+(46, 22, 4, 4, 13.00, NULL, '2025-10-20 22:45:12'),
+(47, 32, 5, 4, 20.00, NULL, '2025-10-20 18:34:55'),
+(48, 31, 5, 4, 20.00, NULL, '2025-10-20 18:34:55'),
+(49, 21, 6, 4, 20.00, NULL, '2025-10-20 19:31:00'),
+(50, 10, 6, 4, 20.00, NULL, '2025-10-20 20:28:28'),
+(51, 9, 6, 4, 10.00, NULL, '2025-10-20 20:28:28'),
+(52, 19, 3, 4, 20.00, 'Error de tipificacion', '2025-10-21 14:54:34'),
+(53, 20, 3, 4, 20.00, NULL, '2025-10-20 20:45:54'),
+(54, 10, 4, 4, 20.00, 'Error de tipificacion', '2025-10-21 12:39:58'),
+(55, 9, 4, 4, 20.00, '', '2025-10-21 01:06:33'),
+(56, 22, 6, 4, 15.00, '', '2025-10-20 22:44:33'),
+(57, 19, 5, 4, 20.00, '', '2025-10-21 20:13:29'),
+(58, 20, 5, 4, 20.00, '', '2025-10-21 20:13:29'),
+(59, 3, 3, 6, 20.00, '', '2025-10-31 23:49:11'),
+(60, 3, 3, 7, 15.00, '', '2025-11-01 00:07:13'),
+(61, 3, 3, 8, 18.00, '', '2025-11-01 00:07:23'),
+(62, 3, 4, 8, 15.00, '', '2025-11-01 00:07:33'),
+(63, 3, 4, 7, 19.00, '', '2025-11-01 00:07:46'),
+(64, 3, 4, 6, 18.00, '', '2025-11-01 00:07:57'),
+(65, 3, 1, 6, 16.00, '', '2025-11-01 00:08:09'),
+(66, 3, 1, 7, 20.00, '', '2025-11-01 00:08:18'),
+(67, 3, 1, 8, 2.00, '', '2025-11-01 00:08:26'),
+(68, 10, 3, 6, 15.00, '', '2025-11-01 01:52:42'),
+(69, 80, 3, 6, 20.00, '', '2025-11-02 20:12:05'),
+(70, 80, 4, 6, 20.00, '', '2025-11-02 20:12:41'),
+(71, 80, 1, 7, 20.00, '', '2025-11-02 20:14:36'),
+(72, 81, 3, 6, 15.00, '', '2025-11-03 11:16:03');
 
 -- --------------------------------------------------------
 
@@ -1011,6 +1153,7 @@ INSERT INTO `notas_estudiantes` (`id_nota`, `id_estudiante`, `id_materia`, `id_l
 -- Estructura de tabla para la tabla `periodos_anuales`
 --
 
+DROP TABLE IF EXISTS `periodos_anuales`;
 CREATE TABLE `periodos_anuales` (
   `id` int(11) NOT NULL,
   `año` int(4) NOT NULL,
@@ -1036,6 +1179,7 @@ INSERT INTO `periodos_anuales` (`id`, `año`, `fecha_inicio`, `fecha_fin`, `desc
 -- Estructura de tabla para la tabla `permisos`
 --
 
+DROP TABLE IF EXISTS `permisos`;
 CREATE TABLE `permisos` (
   `id_permiso` int(11) NOT NULL,
   `nombre_url` varchar(100) NOT NULL,
@@ -1070,6 +1214,7 @@ INSERT INTO `permisos` (`id_permiso`, `nombre_url`, `url`, `fyh_creacion`, `fyh_
 -- Estructura de tabla para la tabla `personas`
 --
 
+DROP TABLE IF EXISTS `personas`;
 CREATE TABLE `personas` (
   `id_persona` int(11) NOT NULL,
   `usuario_id` int(11) NOT NULL,
@@ -1081,22 +1226,17 @@ CREATE TABLE `personas` (
   `celular` varchar(20) NOT NULL,
   `fyh_creacion` date DEFAULT NULL,
   `fyh_actualizacion` date DEFAULT NULL,
-  `estado` varchar(11) DEFAULT NULL
+  `estado` varchar(11) DEFAULT NULL,
+  `foto_perfil` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `personas`
 --
 
-INSERT INTO `personas` (`id_persona`, `usuario_id`, `nombres`, `apellidos`, `ci`, `fecha_nacimiento`, `direccion`, `celular`, `fyh_creacion`, `fyh_actualizacion`, `estado`) VALUES
-(3, 8, 'Carlos Jose', 'Peñas Rivas', '123456756565', '2000-04-06', 'Distrito Capital, Calle Circunvalacion, Urb San Maritn I, Frente a la plaza San Martin.', '04124564199', '2024-10-27', '2024-10-30', '1'),
-(4, 10, 'Daniel Jesus', 'Duartes Quintero', '16023866', '1992-12-12', 'Caracas, el valle', '04124564199', '2024-10-27', NULL, '1'),
-(14, 56, 'heldyn david', 'diaz daboin', '2', '2024-10-23', 'San Martin', '656', '2024-10-28', NULL, '1'),
-(21, 65, 'heldyn david', 'Aray', '555', '2024-10-09', ' caracas', '656', '2024-10-30', NULL, '1'),
-(22, 68, 'heldyn david', 'Diaz Daboin', '27985583', '2024-12-18', 'Caricuao', '04124331080', '2024-12-26', NULL, '1'),
-(24, 71, 'JENNIFER MARIA', 'GIMÉNEZ', '16562458', '1985-06-23', 'Av. Principal San Martin', '04242268486', '2025-01-24', NULL, '1'),
-(26, 73, 'YAGERVI DEL CASTILLO', 'LOPEZ', '12798500', '1975-05-13', 'San Martin', '04124331080', '2025-01-24', '2025-02-08', '1'),
-(27, 74, 'JENNIFER MARIA', 'GIMÉNEZ', '16562458', '1976-07-23', 'Av. Principal San Martin', '04242268486', '2025-01-24', NULL, '1');
+INSERT INTO `personas` (`id_persona`, `usuario_id`, `nombres`, `apellidos`, `ci`, `fecha_nacimiento`, `direccion`, `celular`, `fyh_creacion`, `fyh_actualizacion`, `estado`, `foto_perfil`) VALUES
+(28, 79, 'Keila ', 'Naveda', '27985583', '2025-10-30', 'Parroquia Caricuao Ud1', '04124331080', '2025-10-31', '2025-11-03', '1', NULL),
+(29, 80, 'Heldyn David', 'Diaz Daboin', '15888555', '2025-10-23', 'Parroquia Caricuao Ud1', '04124331080', '2025-10-31', '2025-11-03', '1', NULL);
 
 -- --------------------------------------------------------
 
@@ -1104,6 +1244,7 @@ INSERT INTO `personas` (`id_persona`, `usuario_id`, `nombres`, `apellidos`, `ci`
 -- Estructura de tabla para la tabla `plantillas_carnet`
 --
 
+DROP TABLE IF EXISTS `plantillas_carnet`;
 CREATE TABLE `plantillas_carnet` (
   `id_plantilla` int(11) NOT NULL,
   `nombre` varchar(100) NOT NULL,
@@ -1125,6 +1266,7 @@ CREATE TABLE `plantillas_carnet` (
 -- Estructura de tabla para la tabla `preguntas_seguridad`
 --
 
+DROP TABLE IF EXISTS `preguntas_seguridad`;
 CREATE TABLE `preguntas_seguridad` (
   `id_pregunta` int(11) NOT NULL,
   `usuario_id` int(11) NOT NULL,
@@ -1142,6 +1284,7 @@ CREATE TABLE `preguntas_seguridad` (
 -- Estructura de tabla para la tabla `products`
 --
 
+DROP TABLE IF EXISTS `products`;
 CREATE TABLE `products` (
   `id` int(11) NOT NULL,
   `category_id` int(11) DEFAULT NULL,
@@ -1175,6 +1318,7 @@ INSERT INTO `products` (`id`, `category_id`, `name`, `description`, `features`, 
 -- Estructura de tabla para la tabla `product_categories`
 --
 
+DROP TABLE IF EXISTS `product_categories`;
 CREATE TABLE `product_categories` (
   `id` int(11) NOT NULL,
   `name` varchar(100) NOT NULL,
@@ -1205,6 +1349,7 @@ INSERT INTO `product_categories` (`id`, `name`, `description`, `icon`, `status`,
 -- Estructura de tabla para la tabla `profesores`
 --
 
+DROP TABLE IF EXISTS `profesores`;
 CREATE TABLE `profesores` (
   `id_profesor` int(11) NOT NULL,
   `cedula` varchar(20) NOT NULL,
@@ -1225,7 +1370,26 @@ CREATE TABLE `profesores` (
 --
 
 INSERT INTO `profesores` (`id_profesor`, `cedula`, `nombres`, `apellidos`, `email`, `telefono`, `especialidad`, `estado`, `fecha_creacion`, `fecha_actualizacion`, `usuario`, `password`) VALUES
-(1, '1234567890', 'Juan', 'Pérez', 'juan.perez@example.com', '0987654321', 'Matemáticas', 1, '2025-05-13 14:15:38', NULL, 1, 'e10adc3949ba59abbe56e057f20f883e');
+(1, '1234567890', 'Juan', 'Pérez', 'juan.perez@example.com', '0987654321', 'Matemáticas', 1, '2025-05-13 14:15:38', NULL, 1, 'e10adc3949ba59abbe56e057f20f883e'),
+(3, '27985583', 'Heldyn David', 'Diaz Daboin', 'heldyndiaz19@gmail.com', '04121988817', 'Educacion Fisica', 1, '2025-10-20 16:02:12', '2025-11-03 18:51:12', 0, '$2y$10$wZJBiqDScc2RgPHBpl/N9.wd6yPxRIXKkbu8/GVDZsLoaXnjAwyhS'),
+(4, '27985584', 'Saned Arya', 'Diaz Daboin', 'docente@gmail.com', '02124331080', 'CIENCIAS SOCIALES', 1, '2025-10-21 20:23:56', NULL, 0, '$2y$10$zc9wchmp4M0syuycKEBuKewwPcb8hLdknyo9W/O98Gm.X0SIFCFWq');
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `profesor_seccion_materia`
+--
+
+DROP TABLE IF EXISTS `profesor_seccion_materia`;
+CREATE TABLE `profesor_seccion_materia` (
+  `id_relacion` int(11) NOT NULL,
+  `id_profesor` int(11) DEFAULT NULL,
+  `id_seccion` int(11) DEFAULT NULL,
+  `id_materia` int(11) DEFAULT NULL,
+  `id_gestion` int(11) DEFAULT NULL,
+  `estado` tinyint(4) DEFAULT 1,
+  `fecha_asignacion` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -1233,6 +1397,7 @@ INSERT INTO `profesores` (`id_profesor`, `cedula`, `nombres`, `apellidos`, `emai
 -- Estructura de tabla para la tabla `project_list`
 --
 
+DROP TABLE IF EXISTS `project_list`;
 CREATE TABLE `project_list` (
   `id` int(30) NOT NULL,
   `name` varchar(200) NOT NULL,
@@ -1259,6 +1424,7 @@ INSERT INTO `project_list` (`id`, `name`, `description`, `status`, `start_date`,
 -- Estructura de tabla para la tabla `reportes`
 --
 
+DROP TABLE IF EXISTS `reportes`;
 CREATE TABLE `reportes` (
   `id_reporte` int(11) NOT NULL,
   `id_estudiante` int(11) NOT NULL,
@@ -1280,6 +1446,7 @@ CREATE TABLE `reportes` (
 -- Estructura de tabla para la tabla `representantes`
 --
 
+DROP TABLE IF EXISTS `representantes`;
 CREATE TABLE `representantes` (
   `id_representante` int(11) NOT NULL,
   `tipo_cedula` enum('V','E') DEFAULT NULL,
@@ -1330,6 +1497,7 @@ INSERT INTO `representantes` (`id_representante`, `tipo_cedula`, `cedula`, `nomb
 -- Estructura de tabla para la tabla `roles`
 --
 
+DROP TABLE IF EXISTS `roles`;
 CREATE TABLE `roles` (
   `id_rol` int(11) NOT NULL,
   `nombre_rol` varchar(255) NOT NULL,
@@ -1357,6 +1525,7 @@ INSERT INTO `roles` (`id_rol`, `nombre_rol`, `fyh_creacion`, `fyh_actualizacion`
 -- Estructura de tabla para la tabla `roles_permisos`
 --
 
+DROP TABLE IF EXISTS `roles_permisos`;
 CREATE TABLE `roles_permisos` (
   `id_rol_permiso` int(11) NOT NULL,
   `rol_id` int(11) NOT NULL,
@@ -1397,6 +1566,7 @@ INSERT INTO `roles_permisos` (`id_rol_permiso`, `rol_id`, `permiso_id`, `fyh_cre
 -- Estructura de tabla para la tabla `sangre`
 --
 
+DROP TABLE IF EXISTS `sangre`;
 CREATE TABLE `sangre` (
   `sangre_id` int(30) NOT NULL,
   `tipo_sangre` varchar(30) NOT NULL
@@ -1430,6 +1600,7 @@ INSERT INTO `sangre` (`sangre_id`, `tipo_sangre`) VALUES
 -- Estructura de tabla para la tabla `secciones`
 --
 
+DROP TABLE IF EXISTS `secciones`;
 CREATE TABLE `secciones` (
   `id_seccion` int(11) NOT NULL,
   `turno` char(1) DEFAULT NULL,
@@ -1448,46 +1619,10 @@ CREATE TABLE `secciones` (
 --
 
 INSERT INTO `secciones` (`id_seccion`, `turno`, `capacidad`, `id_gestion`, `id_grado`, `estado`, `nombre_seccion`, `fyh_creacion`, `cupo_actual`, `aula`) VALUES
-(45, 'M', 25, 1, 19, 1, 'A', '2025-01-24 13:07:51', 1, ''),
-(46, 'T', 25, 1, 20, 1, 'B', '2025-01-24 13:11:22', 0, ''),
-(47, 'T', 25, 1, 21, 1, 'C', '2025-01-24 13:12:11', 0, ''),
-(48, 'M', 25, 1, 22, 1, 'A', '2025-01-24 13:17:23', 3, ''),
-(49, 'M', 25, 1, 22, 1, 'B', '2025-01-24 13:17:23', 1, ''),
-(50, 'M', 25, 1, 22, 1, 'C', '2025-01-24 13:17:23', 1, ''),
-(51, 'T', 25, 1, 22, 1, 'D', '2025-01-24 13:17:23', 0, ''),
-(52, 'T', 25, 1, 22, 1, 'E', '2025-01-24 13:17:23', 0, ''),
-(53, 'T', 25, 1, 22, 1, 'F', '2025-01-24 13:17:23', 0, ''),
-(54, 'M', 35, 1, 23, 1, 'A', '2025-01-24 13:17:23', 1, ''),
-(55, 'M', 35, 1, 23, 1, 'B', '2025-01-24 13:17:23', 1, ''),
-(56, 'M', 35, 1, 23, 1, 'C', '2025-01-24 13:17:23', 1, ''),
-(57, 'T', 35, 1, 23, 1, 'D', '2025-01-24 13:17:23', 0, ''),
-(58, 'T', 35, 1, 23, 1, 'E', '2025-01-24 13:17:23', 0, ''),
-(59, 'T', 35, 1, 23, 1, 'F', '2025-01-24 13:17:23', 0, ''),
-(60, 'M', 35, 1, 24, 1, 'A', '2025-01-24 13:17:23', 1, ''),
-(61, 'M', 35, 1, 24, 1, 'B', '2025-01-24 13:17:23', 1, ''),
-(62, 'M', 35, 1, 24, 1, 'C', '2025-01-24 13:17:23', 1, ''),
-(63, 'T', 35, 1, 24, 1, 'D', '2025-01-24 13:17:23', 0, ''),
-(64, 'T', 35, 1, 24, 1, 'E', '2025-01-24 13:17:23', 0, ''),
-(65, 'T', 35, 1, 24, 1, 'F', '2025-01-24 13:17:23', 0, ''),
-(66, 'M', 35, 1, 25, 1, 'A', '2025-01-24 13:17:23', 1, ''),
-(67, 'M', 35, 1, 25, 1, 'B', '2025-01-24 13:17:23', 1, ''),
-(68, 'M', 35, 1, 25, 1, 'C', '2025-01-24 13:17:23', 1, ''),
-(69, 'T', 35, 1, 25, 1, 'D', '2025-01-24 13:17:23', 0, ''),
-(70, 'T', 35, 1, 25, 1, 'E', '2025-01-24 13:17:23', 0, ''),
-(71, 'T', 35, 1, 25, 1, 'F', '2025-01-24 13:17:23', 0, ''),
-(72, 'M', 35, 1, 26, 1, 'A', '2025-01-24 13:17:23', 1, ''),
-(73, 'M', 35, 1, 26, 1, 'B', '2025-01-24 13:17:23', 1, ''),
-(74, 'M', 35, 1, 26, 1, 'C', '2025-01-24 13:17:23', 1, ''),
-(75, 'T', 35, 1, 26, 1, 'D', '2025-01-24 13:17:23', 0, ''),
-(76, 'T', 35, 1, 26, 1, 'E', '2025-01-24 13:17:23', 0, ''),
-(77, 'T', 35, 1, 26, 1, 'F', '2025-01-24 13:17:23', 0, ''),
-(78, 'M', 35, 1, 27, 1, 'A', '2025-01-24 13:17:24', 1, ''),
-(79, 'M', 35, 1, 27, 1, 'B', '2025-01-24 13:17:24', 1, ''),
-(80, 'M', 35, 1, 27, 1, 'C', '2025-01-24 13:17:24', 1, ''),
-(81, 'T', 35, 1, 27, 1, 'D', '2025-01-24 13:17:24', 0, ''),
-(82, 'T', 35, 1, 27, 1, 'E', '2025-01-24 13:17:24', 0, ''),
-(83, 'T', 35, 1, 27, 1, 'F', '2025-01-24 13:17:24', 0, ''),
-(84, 'M', 25, 1, 28, 1, 'A', '2025-08-25 12:41:17', 1, '');
+(97, 'M', 35, 34, 50, 1, 'B', '2025-10-31 17:25:01', 0, ''),
+(98, 'M', 25, 34, 50, 1, 'A', '2025-10-31 17:25:13', 1, ''),
+(99, 'M', 25, 34, 50, 1, 'C', '2025-10-31 17:25:39', 0, ''),
+(100, 'M', 30, 34, 51, 1, 'B', '2025-10-31 17:29:23', 4, '');
 
 -- --------------------------------------------------------
 
@@ -1495,6 +1630,7 @@ INSERT INTO `secciones` (`id_seccion`, `turno`, `capacidad`, `id_gestion`, `id_g
 -- Estructura de tabla para la tabla `sexos`
 --
 
+DROP TABLE IF EXISTS `sexos`;
 CREATE TABLE `sexos` (
   `sexo_id` int(11) NOT NULL,
   `sexo` varchar(11) NOT NULL
@@ -1516,6 +1652,7 @@ INSERT INTO `sexos` (`sexo_id`, `sexo`) VALUES
 -- Estructura de tabla para la tabla `social_media`
 --
 
+DROP TABLE IF EXISTS `social_media`;
 CREATE TABLE `social_media` (
   `id` int(11) NOT NULL,
   `name` varchar(100) NOT NULL,
@@ -1544,6 +1681,7 @@ INSERT INTO `social_media` (`id`, `name`, `url`, `icon`, `icon_type`, `color`, `
 -- Estructura de tabla para la tabla `solicitudes_constancias`
 --
 
+DROP TABLE IF EXISTS `solicitudes_constancias`;
 CREATE TABLE `solicitudes_constancias` (
   `id_solicitud` int(11) NOT NULL,
   `id_estudiante` int(11) NOT NULL,
@@ -1615,6 +1753,7 @@ INSERT INTO `solicitudes_constancias` (`id_solicitud`, `id_estudiante`, `cedula_
 -- Estructura de tabla para la tabla `system_settings`
 --
 
+DROP TABLE IF EXISTS `system_settings`;
 CREATE TABLE `system_settings` (
   `id` int(11) NOT NULL,
   `setting_key` varchar(100) NOT NULL,
@@ -1639,6 +1778,7 @@ INSERT INTO `system_settings` (`id`, `setting_key`, `setting_value`, `setting_ty
 -- Estructura de tabla para la tabla `tallas`
 --
 
+DROP TABLE IF EXISTS `tallas`;
 CREATE TABLE `tallas` (
   `talla_id` int(30) NOT NULL,
   `talla` varchar(30) NOT NULL
@@ -1668,6 +1808,7 @@ INSERT INTO `tallas` (`talla_id`, `talla`) VALUES
 -- Estructura de tabla para la tabla `task_list`
 --
 
+DROP TABLE IF EXISTS `task_list`;
 CREATE TABLE `task_list` (
   `id` int(30) NOT NULL,
   `project_id` int(30) NOT NULL,
@@ -1693,6 +1834,7 @@ INSERT INTO `task_list` (`id`, `project_id`, `task`, `description`, `status`, `d
 -- Estructura de tabla para la tabla `tblcategory`
 --
 
+DROP TABLE IF EXISTS `tblcategory`;
 CREATE TABLE `tblcategory` (
   `id` int(11) NOT NULL,
   `CategoryName` varchar(255) NOT NULL,
@@ -1724,6 +1866,7 @@ INSERT INTO `tblcategory` (`id`, `CategoryName`, `Description`, `PostingDate`, `
 -- Estructura de tabla para la tabla `tblcomments`
 --
 
+DROP TABLE IF EXISTS `tblcomments`;
 CREATE TABLE `tblcomments` (
   `id` int(11) NOT NULL,
   `postId` char(11) DEFAULT NULL,
@@ -1740,6 +1883,7 @@ CREATE TABLE `tblcomments` (
 -- Estructura de tabla para la tabla `tblposts`
 --
 
+DROP TABLE IF EXISTS `tblposts`;
 CREATE TABLE `tblposts` (
   `id` int(11) NOT NULL,
   `PostTitle` longtext DEFAULT NULL,
@@ -1785,6 +1929,7 @@ INSERT INTO `tblposts` (`id`, `PostTitle`, `CategoryId`, `SubCategoryId`, `PostD
 -- Estructura de tabla para la tabla `tblsubcategory`
 --
 
+DROP TABLE IF EXISTS `tblsubcategory`;
 CREATE TABLE `tblsubcategory` (
   `SubCategoryId` int(11) NOT NULL,
   `CategoryId` int(11) NOT NULL,
@@ -1827,6 +1972,7 @@ INSERT INTO `tblsubcategory` (`SubCategoryId`, `CategoryId`, `Subcategory`, `Sub
 -- Estructura de tabla para la tabla `team_members`
 --
 
+DROP TABLE IF EXISTS `team_members`;
 CREATE TABLE `team_members` (
   `id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
@@ -1846,6 +1992,7 @@ CREATE TABLE `team_members` (
 -- Estructura de tabla para la tabla `tipos_constancia`
 --
 
+DROP TABLE IF EXISTS `tipos_constancia`;
 CREATE TABLE `tipos_constancia` (
   `id_tipo_constancia` int(11) NOT NULL,
   `nombre_tipo_constancia` varchar(255) NOT NULL,
@@ -1870,6 +2017,7 @@ INSERT INTO `tipos_constancia` (`id_tipo_constancia`, `nombre_tipo_constancia`, 
 -- Estructura de tabla para la tabla `turnos`
 --
 
+DROP TABLE IF EXISTS `turnos`;
 CREATE TABLE `turnos` (
   `id_turno` int(11) NOT NULL,
   `nombre_turno` varchar(50) NOT NULL,
@@ -1892,6 +2040,7 @@ INSERT INTO `turnos` (`id_turno`, `nombre_turno`, `estado`, `created_at`, `updat
 -- Estructura de tabla para la tabla `users`
 --
 
+DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `id` int(30) NOT NULL,
   `firstname` varchar(200) NOT NULL,
@@ -1921,6 +2070,7 @@ INSERT INTO `users` (`id`, `firstname`, `lastname`, `email`, `password`, `type`,
 -- Estructura de tabla para la tabla `user_productivity`
 --
 
+DROP TABLE IF EXISTS `user_productivity`;
 CREATE TABLE `user_productivity` (
   `id` int(30) NOT NULL,
   `project_id` int(30) NOT NULL,
@@ -1951,6 +2101,7 @@ INSERT INTO `user_productivity` (`id`, `project_id`, `task_id`, `comment`, `subj
 -- Estructura de tabla para la tabla `usuarios`
 --
 
+DROP TABLE IF EXISTS `usuarios`;
 CREATE TABLE `usuarios` (
   `id_usuario` int(11) NOT NULL,
   `rol_id` int(11) NOT NULL,
@@ -1958,16 +2109,21 @@ CREATE TABLE `usuarios` (
   `password` text NOT NULL,
   `fyh_creacion` datetime DEFAULT NULL,
   `fyh_actualizacion` datetime DEFAULT NULL,
-  `estado` varchar(11) DEFAULT NULL
+  `estado` varchar(11) DEFAULT NULL,
+  `token_recuperacion` varchar(255) DEFAULT NULL,
+  `expiracion_token` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `usuarios`
 --
 
-INSERT INTO `usuarios` (`id_usuario`, `rol_id`, `email`, `password`, `fyh_creacion`, `fyh_actualizacion`, `estado`) VALUES
-(1, 1, 'admin@gmail.com', '$2y$10$NVhkeupcyKUPFqx.l7t7n.qELV7X5LxKjmOV3WwyRQ3CfJquHF0P2', '2023-12-28 20:29:10', '2024-11-12 00:00:00', '1'),
-(75, 2, 'dv47762@gmail.com', '$2y$10$NVhkeupcyKUPFqx.l7t7n.qELV7X5LxKjmOV3WwyRQ3CfJquHF0P2', '2025-10-14 00:00:00', NULL, '1');
+INSERT INTO `usuarios` (`id_usuario`, `rol_id`, `email`, `password`, `fyh_creacion`, `fyh_actualizacion`, `estado`, `token_recuperacion`, `expiracion_token`) VALUES
+(1, 1, 'admin@gmail.com', '$2y$10$NVhkeupcyKUPFqx.l7t7n.qELV7X5LxKjmOV3WwyRQ3CfJquHF0P2', '2023-12-28 20:29:10', '2024-11-12 00:00:00', '1', NULL, NULL),
+(76, 5, 'heldyndiaz19@gmail.com', '$2y$10$wZJBiqDScc2RgPHBpl/N9.wd6yPxRIXKkbu8/GVDZsLoaXnjAwyhS', '2025-10-20 16:02:12', NULL, '1', 'ea5cf2280006ee376689b4ae44344a8739367920847d4efd3c049cdf87693459', '2025-11-03 21:11:45'),
+(77, 5, 'docente@gmail.com', '$2y$10$zc9wchmp4M0syuycKEBuKewwPcb8hLdknyo9W/O98Gm.X0SIFCFWq', '2025-10-21 20:23:56', NULL, '1', NULL, NULL),
+(79, 2, 'keila@gmail.com', '$2y$10$D.P0yn6rxIbwgiOzidG3I.7FdyiMeto5pq1Qr5hCOPIIgYOWHL4Fe', '2025-10-31 00:00:00', '2025-11-03 00:00:00', '1', NULL, NULL),
+(80, 2, 'heldyndiaz@gmail.com', '$2y$10$KaHW.NQX2HNuEZaMtrkwPOxPkEGiE06N7W3vivQn4hNsWztAha/Lq', '2025-10-31 00:00:00', '2025-11-03 00:00:00', '1', NULL, NULL);
 
 --
 -- Índices para tablas volcadas
@@ -2011,6 +2167,16 @@ ALTER TABLE `administrativos`
   ADD KEY `persona_id` (`persona_id`);
 
 --
+-- Indices de la tabla `asignaciones_profesor`
+--
+ALTER TABLE `asignaciones_profesor`
+  ADD PRIMARY KEY (`id_asignacion`),
+  ADD UNIQUE KEY `uk_asignacion` (`id_profesor`,`id_materia`,`id_seccion`,`id_gestion`),
+  ADD KEY `id_materia` (`id_materia`),
+  ADD KEY `id_seccion` (`id_seccion`),
+  ADD KEY `id_gestion` (`id_gestion`);
+
+--
 -- Indices de la tabla `calendario_academico`
 --
 ALTER TABLE `calendario_academico`
@@ -2021,6 +2187,20 @@ ALTER TABLE `calendario_academico`
 --
 ALTER TABLE `carrusel`
   ADD PRIMARY KEY (`id`);
+
+--
+-- Indices de la tabla `chat_mensajes`
+--
+ALTER TABLE `chat_mensajes`
+  ADD PRIMARY KEY (`id_mensaje`);
+
+--
+-- Indices de la tabla `chat_reacciones`
+--
+ALTER TABLE `chat_reacciones`
+  ADD PRIMARY KEY (`id_reaccion`),
+  ADD UNIQUE KEY `unique_reaccion` (`id_mensaje`,`id_usuario`),
+  ADD KEY `id_usuario` (`id_usuario`);
 
 --
 -- Indices de la tabla `citas_nacimiento`
@@ -2111,6 +2291,27 @@ ALTER TABLE `grados_materias`
   ADD PRIMARY KEY (`id`),
   ADD KEY `id_grado` (`id_grado`),
   ADD KEY `id_materia` (`id_materia`);
+
+--
+-- Indices de la tabla `historial_cambios_notas`
+--
+ALTER TABLE `historial_cambios_notas`
+  ADD PRIMARY KEY (`id_historial`),
+  ADD KEY `id_estudiante` (`id_estudiante`),
+  ADD KEY `id_materia` (`id_materia`),
+  ADD KEY `id_lapso` (`id_lapso`),
+  ADD KEY `id_profesor` (`id_profesor`);
+
+--
+-- Indices de la tabla `historial_notas`
+--
+ALTER TABLE `historial_notas`
+  ADD PRIMARY KEY (`id_historial`),
+  ADD KEY `id_nota` (`id_nota`),
+  ADD KEY `id_estudiante` (`id_estudiante`),
+  ADD KEY `id_materia` (`id_materia`),
+  ADD KEY `id_lapso` (`id_lapso`),
+  ADD KEY `usuario_cambio` (`usuario_cambio`);
 
 --
 -- Indices de la tabla `horarios`
@@ -2212,6 +2413,16 @@ ALTER TABLE `profesores`
   ADD PRIMARY KEY (`id_profesor`),
   ADD UNIQUE KEY `email` (`email`),
   ADD UNIQUE KEY `cedula` (`cedula`);
+
+--
+-- Indices de la tabla `profesor_seccion_materia`
+--
+ALTER TABLE `profesor_seccion_materia`
+  ADD PRIMARY KEY (`id_relacion`),
+  ADD KEY `id_profesor` (`id_profesor`),
+  ADD KEY `id_seccion` (`id_seccion`),
+  ADD KEY `id_materia` (`id_materia`),
+  ADD KEY `id_gestion` (`id_gestion`);
 
 --
 -- Indices de la tabla `project_list`
@@ -2389,7 +2600,13 @@ ALTER TABLE `activity_logs`
 -- AUTO_INCREMENT de la tabla `administrativos`
 --
 ALTER TABLE `administrativos`
-  MODIFY `id_administrativo` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id_administrativo` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
+-- AUTO_INCREMENT de la tabla `asignaciones_profesor`
+--
+ALTER TABLE `asignaciones_profesor`
+  MODIFY `id_asignacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=60;
 
 --
 -- AUTO_INCREMENT de la tabla `calendario_academico`
@@ -2402,6 +2619,18 @@ ALTER TABLE `calendario_academico`
 --
 ALTER TABLE `carrusel`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT de la tabla `chat_mensajes`
+--
+ALTER TABLE `chat_mensajes`
+  MODIFY `id_mensaje` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+
+--
+-- AUTO_INCREMENT de la tabla `chat_reacciones`
+--
+ALTER TABLE `chat_reacciones`
+  MODIFY `id_reaccion` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `citas_nacimiento`
@@ -2473,13 +2702,13 @@ ALTER TABLE `estudiantes`
 -- AUTO_INCREMENT de la tabla `gestiones`
 --
 ALTER TABLE `gestiones`
-  MODIFY `id_gestion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id_gestion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- AUTO_INCREMENT de la tabla `grados`
 --
 ALTER TABLE `grados`
-  MODIFY `id_grado` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
+  MODIFY `id_grado` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
 
 --
 -- AUTO_INCREMENT de la tabla `grados_materias`
@@ -2488,10 +2717,22 @@ ALTER TABLE `grados_materias`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT de la tabla `historial_cambios_notas`
+--
+ALTER TABLE `historial_cambios_notas`
+  MODIFY `id_historial` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `historial_notas`
+--
+ALTER TABLE `historial_notas`
+  MODIFY `id_historial` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=108;
+
+--
 -- AUTO_INCREMENT de la tabla `horarios`
 --
 ALTER TABLE `horarios`
-  MODIFY `id_horario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id_horario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `horario_detalle`
@@ -2503,13 +2744,13 @@ ALTER TABLE `horario_detalle`
 -- AUTO_INCREMENT de la tabla `inscripciones`
 --
 ALTER TABLE `inscripciones`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=228;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=243;
 
 --
 -- AUTO_INCREMENT de la tabla `lapsos`
 --
 ALTER TABLE `lapsos`
-  MODIFY `id_lapso` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id_lapso` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT de la tabla `materias`
@@ -2527,7 +2768,7 @@ ALTER TABLE `niveles`
 -- AUTO_INCREMENT de la tabla `notas_estudiantes`
 --
 ALTER TABLE `notas_estudiantes`
-  MODIFY `id_nota` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
+  MODIFY `id_nota` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=73;
 
 --
 -- AUTO_INCREMENT de la tabla `periodos_anuales`
@@ -2545,7 +2786,7 @@ ALTER TABLE `permisos`
 -- AUTO_INCREMENT de la tabla `personas`
 --
 ALTER TABLE `personas`
-  MODIFY `id_persona` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+  MODIFY `id_persona` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
 
 --
 -- AUTO_INCREMENT de la tabla `plantillas_carnet`
@@ -2569,7 +2810,13 @@ ALTER TABLE `product_categories`
 -- AUTO_INCREMENT de la tabla `profesores`
 --
 ALTER TABLE `profesores`
-  MODIFY `id_profesor` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id_profesor` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT de la tabla `profesor_seccion_materia`
+--
+ALTER TABLE `profesor_seccion_materia`
+  MODIFY `id_relacion` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `project_list`
@@ -2605,7 +2852,7 @@ ALTER TABLE `roles_permisos`
 -- AUTO_INCREMENT de la tabla `secciones`
 --
 ALTER TABLE `secciones`
-  MODIFY `id_seccion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=85;
+  MODIFY `id_seccion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=101;
 
 --
 -- AUTO_INCREMENT de la tabla `social_media`
@@ -2689,7 +2936,7 @@ ALTER TABLE `user_productivity`
 -- AUTO_INCREMENT de la tabla `usuarios`
 --
 ALTER TABLE `usuarios`
-  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=76;
+  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=81;
 
 --
 -- Restricciones para tablas volcadas
@@ -2700,6 +2947,22 @@ ALTER TABLE `usuarios`
 --
 ALTER TABLE `administrativos`
   ADD CONSTRAINT `administrativos_ibfk_1` FOREIGN KEY (`persona_id`) REFERENCES `personas` (`id_persona`) ON DELETE NO ACTION ON UPDATE CASCADE;
+
+--
+-- Filtros para la tabla `asignaciones_profesor`
+--
+ALTER TABLE `asignaciones_profesor`
+  ADD CONSTRAINT `asignaciones_profesor_ibfk_1` FOREIGN KEY (`id_profesor`) REFERENCES `profesores` (`id_profesor`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `asignaciones_profesor_ibfk_2` FOREIGN KEY (`id_materia`) REFERENCES `materias` (`id_materia`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `asignaciones_profesor_ibfk_3` FOREIGN KEY (`id_seccion`) REFERENCES `secciones` (`id_seccion`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `asignaciones_profesor_ibfk_4` FOREIGN KEY (`id_gestion`) REFERENCES `gestiones` (`id_gestion`) ON UPDATE CASCADE;
+
+--
+-- Filtros para la tabla `chat_reacciones`
+--
+ALTER TABLE `chat_reacciones`
+  ADD CONSTRAINT `chat_reacciones_ibfk_1` FOREIGN KEY (`id_mensaje`) REFERENCES `chat_mensajes` (`id_mensaje`) ON DELETE CASCADE,
+  ADD CONSTRAINT `chat_reacciones_ibfk_2` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE;
 
 --
 -- Filtros para la tabla `docentes`
@@ -2721,20 +2984,30 @@ ALTER TABLE `grados_materias`
   ADD CONSTRAINT `grados_materias_ibfk_2` FOREIGN KEY (`id_materia`) REFERENCES `materias` (`id_materia`);
 
 --
+-- Filtros para la tabla `historial_cambios_notas`
+--
+ALTER TABLE `historial_cambios_notas`
+  ADD CONSTRAINT `historial_cambios_notas_ibfk_1` FOREIGN KEY (`id_estudiante`) REFERENCES `estudiantes` (`id_estudiante`),
+  ADD CONSTRAINT `historial_cambios_notas_ibfk_2` FOREIGN KEY (`id_materia`) REFERENCES `materias` (`id_materia`),
+  ADD CONSTRAINT `historial_cambios_notas_ibfk_3` FOREIGN KEY (`id_lapso`) REFERENCES `lapsos` (`id_lapso`),
+  ADD CONSTRAINT `historial_cambios_notas_ibfk_4` FOREIGN KEY (`id_profesor`) REFERENCES `profesores` (`id_profesor`);
+
+--
+-- Filtros para la tabla `historial_notas`
+--
+ALTER TABLE `historial_notas`
+  ADD CONSTRAINT `historial_notas_ibfk_1` FOREIGN KEY (`id_nota`) REFERENCES `notas_estudiantes` (`id_nota`) ON DELETE CASCADE,
+  ADD CONSTRAINT `historial_notas_ibfk_2` FOREIGN KEY (`id_estudiante`) REFERENCES `estudiantes` (`id_estudiante`),
+  ADD CONSTRAINT `historial_notas_ibfk_3` FOREIGN KEY (`id_materia`) REFERENCES `materias` (`id_materia`),
+  ADD CONSTRAINT `historial_notas_ibfk_4` FOREIGN KEY (`id_lapso`) REFERENCES `lapsos` (`id_lapso`);
+
+--
 -- Filtros para la tabla `horarios`
 --
 ALTER TABLE `horarios`
   ADD CONSTRAINT `horarios_ibfk_1` FOREIGN KEY (`id_gestion`) REFERENCES `gestiones` (`id_gestion`),
   ADD CONSTRAINT `horarios_ibfk_2` FOREIGN KEY (`id_grado`) REFERENCES `grados` (`id_grado`),
   ADD CONSTRAINT `horarios_ibfk_3` FOREIGN KEY (`id_seccion`) REFERENCES `secciones` (`id_seccion`);
-
---
--- Filtros para la tabla `horario_detalle`
---
-ALTER TABLE `horario_detalle`
-  ADD CONSTRAINT `horario_detalle_ibfk_1` FOREIGN KEY (`id_horario`) REFERENCES `horarios` (`id_horario`),
-  ADD CONSTRAINT `horario_detalle_ibfk_2` FOREIGN KEY (`id_materia`) REFERENCES `materias` (`id_materia`),
-  ADD CONSTRAINT `horario_detalle_ibfk_3` FOREIGN KEY (`id_profesor`) REFERENCES `profesores` (`id_profesor`);
 
 --
 -- Filtros para la tabla `inscripciones`
@@ -2761,6 +3034,15 @@ ALTER TABLE `notas_estudiantes`
   ADD CONSTRAINT `notas_estudiantes_ibfk_1` FOREIGN KEY (`id_estudiante`) REFERENCES `estudiantes` (`id_estudiante`),
   ADD CONSTRAINT `notas_estudiantes_ibfk_2` FOREIGN KEY (`id_materia`) REFERENCES `materias` (`id_materia`),
   ADD CONSTRAINT `notas_estudiantes_ibfk_3` FOREIGN KEY (`id_lapso`) REFERENCES `lapsos` (`id_lapso`);
+
+--
+-- Filtros para la tabla `profesor_seccion_materia`
+--
+ALTER TABLE `profesor_seccion_materia`
+  ADD CONSTRAINT `profesor_seccion_materia_ibfk_1` FOREIGN KEY (`id_profesor`) REFERENCES `profesores` (`id_profesor`),
+  ADD CONSTRAINT `profesor_seccion_materia_ibfk_2` FOREIGN KEY (`id_seccion`) REFERENCES `secciones` (`id_seccion`),
+  ADD CONSTRAINT `profesor_seccion_materia_ibfk_3` FOREIGN KEY (`id_materia`) REFERENCES `materias` (`id_materia`),
+  ADD CONSTRAINT `profesor_seccion_materia_ibfk_4` FOREIGN KEY (`id_gestion`) REFERENCES `gestiones` (`id_gestion`);
 
 --
 -- Filtros para la tabla `secciones`

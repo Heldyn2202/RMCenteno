@@ -68,14 +68,14 @@ if($sentencia->execute()){
     echo 'success';
     $pdo->commit();
     session_start();
-    $_SESSION['mensaje'] = "Se actualizó el personal administrativo de la manera correcta en la base de datos";
+    $_SESSION['mensaje'] = "Se actualizó el personal administrativo de la manera correcta";
     $_SESSION['icono'] = "success";
     header('Location:'.APP_URL."/admin/administrativos");
 }else{
     echo 'error al registrar a la base de datos';
     $pdo->rollBack();
     session_start();
-    $_SESSION['mensaje'] = "Error no se pudo actualizar en la base datos, comuníquese con el administrador";
+    $_SESSION['mensaje'] = "Error no se pudo actualizar, comuníquese con el administrador";
     $_SESSION['icono'] = "error";
     ?><script>window.history.back();</script><?php
 }

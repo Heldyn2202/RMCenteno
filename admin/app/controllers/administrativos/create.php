@@ -63,7 +63,7 @@ if($sentencia->execute()){
     echo 'success';
     $pdo->commit();
     session_start();
-    $_SESSION['mensaje'] = "Se registro el personal administrativo de la manera correcta en la base de datos";
+    $_SESSION['mensaje'] = "Se registro el personal administrativo de la manera correcta ";
     $_SESSION['icono'] = "success";
     header('Location:'.APP_URL."/admin/administrativos");
 //header('Location:' .$URL.'/');
@@ -71,7 +71,7 @@ if($sentencia->execute()){
     echo 'error al registrar a la base de datos';
     $pdo->rollBack();
     session_start();
-    $_SESSION['mensaje'] = "Error no se pudo registrar en la base datos, comuniquese con el administrador";
+    $_SESSION['mensaje'] = "Error no se pudo registrar, comuniquese con el administrador";
     $_SESSION['icono'] = "error";
     ?><script>window.history.back();</script><?php
 }
