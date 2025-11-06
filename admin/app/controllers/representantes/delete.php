@@ -27,7 +27,7 @@ if ($resultado) {
     } else {  
         $_SESSION['mensaje'] = 'Acción no válida.';  
         $_SESSION['icono'] = 'error';  
-        header('Location: ' . APP_URL . "/admin/representantes");  
+        header('Location: ' . APP_URL . "/admin/representantes/representantes.php");  
         exit;  
     }  
 
@@ -39,25 +39,25 @@ if ($resultado) {
     try {  
         if ($sentencia->execute()) {  
             // Si se actualiza exitosamente  
-            header("Location: " . APP_URL . "/admin/representantes");  
+            header("Location: " . APP_URL . "/admin/representantes/representantes.php");  
             exit();  
         } else {  
             // Si hubo un error al actualizar  
             $_SESSION['mensaje'] = "Error: no se pudo actualizar en la base de datos. Comuníquese con el administrador.";  
             $_SESSION['icono'] = 'error';  
-            header("Location: " . APP_URL . "/admin/representantes");  
+            header("Location: " . APP_URL . "/admin/representantes/representantes.php");  
             exit();  
         }  
     } catch (Exception $exception) {  
         $_SESSION['mensaje'] = "Error: no se pudo actualizar en la base de datos. Comuníquese con el administrador.";  
         $_SESSION['icono'] = 'error';  
-        header("Location: " . APP_URL . "/admin/representantes");  
+        header("Location: " . APP_URL . "/admin/representantes/representantes.php");  
         exit();  
     }  
 } else {  
     $_SESSION['mensaje'] = "Error: representante no encontrado.";  
     $_SESSION['icono'] = 'error';  
-    header("Location: " . APP_URL . "/admin/representantes");  
+    header("Location: " . APP_URL . "/admin/representantes/representantes.php");  
     exit();  
 }  
 ?>

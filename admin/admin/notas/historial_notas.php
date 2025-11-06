@@ -1,19 +1,72 @@
 <?php
 require_once('verificar_docente.php');
-$datos_docente = verificarDocente();
+$datos_docente = verificarDocente(); 
 include('../../admin/layout/parte1.php');
 
-// ✅ Consulta el historial con nombres legibles
-$sql = "SELECT hn.*, e.nombres, e.apellidos, m.nombre_materia, l.nombre_lapso
+// =======================================================
+// 1. ESTILO PERSONALIZADO PARA ENCABEZADOS DE TABLA (HOVER CORREGIDO)
+// =======================================================
+?>
+<style>
+    /* Estilo para reemplazar thead-dark */
+    .thead-claro-personalizado {
+        background-color: #cfe2ff !important; /* Azul claro para el fondo (Normal) */
+        color: #333333; /* Color de texto oscuro para buen contraste */
+        border-bottom: 2px solid #b6d4fe; 
+    }
+
+    /* ✅ CORRECCIÓN HOVER: Aplicamos el efecto de azul más oscuro al pasar el mouse */
+    #tablaHistorialNotas thead th:hover {
+        background-color: #b6d4fe !important; /* Azul más oscuro para el hover */
+        cursor: pointer; /* Indica que la columna es clickeable/ordenable */
+    }
+    
+    /* Asegura que el color de fondo estático tenga prioridad sobre otras reglas (si las hay) */
+    #tablaHistorialNotas thead th {
+        background-color: #cfe2ff !important;
+    }
+</style>
+
+<?php
+// =======================================================
+// 2. LÓGICA PHP OPTIMIZADA
+// =======================================================
+
+// Consulta principal: utiliza el JOIN optimizado a gestiones
+$sql = "SELECT 
+            hn.*, 
+            e.nombres, 
+            e.apellidos, 
+            m.nombre_materia, 
+            l.nombre_lapso,
+            CONCAT(YEAR(g.desde), ' - ', YEAR(g.hasta)) AS nombre_gestion  
         FROM historial_notas hn
         INNER JOIN estudiantes e ON hn.id_estudiante = e.id_estudiante
         INNER JOIN materias m ON hn.id_materia = m.id_materia
         INNER JOIN lapsos l ON hn.id_lapso = l.id_lapso
+        INNER JOIN gestiones g ON hn.id_gestion = g.id_gestion 
         WHERE hn.estado = 1
         ORDER BY hn.fecha_cambio DESC";
 $query = $pdo->prepare($sql);
-$query->execute();
+$query->execute(); 
 $historial = $query->fetchAll(PDO::FETCH_ASSOC);
+
+// Extracción de gestiones disponibles para el filtro Select
+// ✅ CORRECCIÓN GESTIÓN: Quitamos WHERE estado = 1 para mostrar TODAS las gestiones (Históricas y activas)
+try {
+    $gestiones_disponibles_query = $pdo->query("SELECT DISTINCT CONCAT(YEAR(desde), ' - ', YEAR(hasta)) AS gestion_nombre FROM gestiones ORDER BY desde DESC");
+    $gestiones_disponibles = $gestiones_disponibles_query->fetchAll(PDO::FETCH_COLUMN);
+} catch (PDOException $e) {
+    $gestiones_disponibles = []; 
+}
+
+$tipo_cambio_colores = [
+    'CREACION' => 'success',
+    'ACTUALIZACION' => 'warning',
+    'MODIFICACION' => 'warning' 
+];
+$nota_anterior_color = 'secondary';
+$nota_nueva_color = 'primary'; 
 ?>
 
 <div class="content-wrapper">
@@ -23,13 +76,14 @@ $historial = $query->fetchAll(PDO::FETCH_ASSOC);
                 <div class="container-fluid">
                     <div class="row mb-2">
                         <div class="col-sm-6">
-                            <h1 class="m-0">Historial de Cambios en Notas</h1>
+                            <h1 class="m-0 text-dark" style="font-weight: 700;">
+                                <i class="fas fa-history text-primary"></i> Historial de Cambios en Notas
+                            </h1>
                         </div>
                         <div class="col-sm-6 text-right">
-                            <!-- ✅ Mostrar nombre completo del docente -->
-                            <span class="badge badge-info p-2">
-                                <i class="fas fa-user"></i> 
-                                <?= htmlspecialchars(trim(($datos_docente['nombre_profesor'] ?? '') . ' ' . ($datos_docente['apellido_profesor'] ?? ''))) ?>
+                            <span class="badge badge-primary p-2">
+                                <i class="fas fa-user-shield"></i> 
+                                USUARIO: <?= htmlspecialchars(trim(($datos_docente['nombre_profesor'] ?? '') . ' ' . ($datos_docente['apellido_profesor'] ?? ''))) ?>
                             </span>
                         </div>
                     </div>
@@ -40,79 +94,96 @@ $historial = $query->fetchAll(PDO::FETCH_ASSOC);
                 <div class="col-md-12">
                     <div class="card card-outline card-primary">
                         <div class="card-header">
-                            <h3 class="card-title">Registro de Cambios</h3>
+                            <h3 class="card-title">Registro de Auditoría</h3>
                         </div>
                         <div class="card-body">
-                            <table class="table table-bordered table-striped table-hover">
-                                <thead class="thead-dark">
+
+                            <div class="row mb-4 p-3 border rounded" style="background-color: #f8f9fa;">
+                                <div class="col-md-6 mb-2 mb-md-0">
+                                    <label class="fw-semibold">Filtro por Tipo de Cambio:</label><br>
+                                    <button type="button" class="btn btn-sm btn-outline-primary btn-filter-tipo active" data-filter="todas">
+                                        Todas <span class="badge badge-light ml-1"></span>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-success btn-filter-tipo" data-filter="CREACION">
+                                        Creación <span class="badge badge-light ml-1"></span>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-warning btn-filter-tipo" data-filter="ACTUALIZACION">
+                                        Modificación <span class="badge badge-light ml-1"></span>
+                                    </button>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <label for="filtro-gestion" class="fw-semibold">Filtro por Gestión:</label>
+                                    <select id="filtro-gestion" class="form-control form-control-sm">
+                                        <option value="">-- Todas las Gestiones --</option>
+                                        <?php foreach ($gestiones_disponibles as $gestion): ?>
+                                            <option value="<?= htmlspecialchars($gestion) ?>"><?= htmlspecialchars($gestion) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <table id="tablaHistorialNotas" class="table table-bordered table-striped table-hover table-sm w-100">
+                                <thead class="thead-claro-personalizado"> 
                                     <tr>
-                                        <th>#</th>
-                                        <th>Fecha Cambio</th>
+                                        <th class="text-center">#</th>
+                                        <th style="min-width: 130px;">Fecha/Hora</th>
                                         <th>Estudiante</th>
                                         <th>Materia</th>
-                                        <th>Lapso</th>
-                                        <th>Nota Anterior</th>
-                                        <th>Nota Nueva</th>
-                                        <th>Obs. Anterior</th>
-                                        <th>Obs. Nueva</th>
-                                        <th>Tipo Cambio</th>
+                                        <th class="text-center">Lapso</th>
+                                        <th class="text-center">Gestión</th> 
+                                        <th class="text-center">N. Ant.</th>
+                                        <th class="text-center">N. Nva.</th>
+                                        <th>Obs. Ant.</th>
+                                        <th>Obs. Nva.</th>
+                                        <th class="text-center">Tipo</th>
                                         <th>Usuario</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php $contador = 1; ?>
                                     <?php foreach ($historial as $registro): ?>
+                                        <?php
+                                            $tipo_cambio = strtoupper($registro['tipo_cambio']);
+                                            $badge_color = $tipo_cambio_colores[$tipo_cambio] ?? 'info';
+                                            $obs_anterior = trim($registro['observaciones_anterior']);
+                                            $obs_nueva = trim($registro['observaciones_nueva']);
+                                        ?>
                                         <tr>
-                                            <td><?= $contador++ ?></td>
+                                            <td class="text-center"><?= $contador++ ?></td>
                                             <td><?= htmlspecialchars($registro['fecha_cambio']) ?></td>
                                             <td><?= htmlspecialchars($registro['apellidos'] . ', ' . $registro['nombres']) ?></td>
                                             <td><?= htmlspecialchars($registro['nombre_materia']) ?></td>
-                                            <td><?= htmlspecialchars($registro['nombre_lapso']) ?></td>
+                                            <td class="text-center"><?= htmlspecialchars($registro['nombre_lapso']) ?></td>
+                                            <td class="text-center"><?= htmlspecialchars($registro['nombre_gestion']) ?></td> 
                                             
-                                            <!-- Nota anterior -->
                                             <td class="text-center">
                                                 <?php if ($registro['calificacion_anterior'] !== null): ?>
-                                                    <span class="badge badge-warning"><?= number_format($registro['calificacion_anterior'], 2) ?></span>
+                                                    <span class="badge badge-<?= $nota_anterior_color ?>"><?= number_format($registro['calificacion_anterior'], 2) ?></span>
                                                 <?php else: ?>
-                                                    <em>N/A</em>
+                                                    <em class="text-muted">N/A</em>
                                                 <?php endif; ?>
                                             </td>
 
-                                            <!-- Nota nueva -->
                                             <td class="text-center">
-                                                <span class="badge badge-success"><?= number_format($registro['calificacion_nueva'], 2) ?></span>
+                                                <span class="badge badge-<?= $nota_nueva_color ?>"><?= number_format($registro['calificacion_nueva'], 2) ?></span>
                                             </td>
 
-                                            <!-- Observación anterior -->
-                                            <td style="max-width: 220px; word-wrap: break-word;">
-                                                <?php if (!empty($registro['observaciones_anterior'])): ?>
-                                                    <span class="text-muted"><?= nl2br(htmlspecialchars($registro['observaciones_anterior'])) ?></span>
-                                                <?php else: ?>
-                                                    <em>Sin observación</em>
-                                                <?php endif; ?>
+                                            <td class="text-muted small">
+                                                <?= (!empty($obs_anterior) && $obs_anterior !== 'Sin observación') ? nl2br(htmlspecialchars($obs_anterior)) : '<i class="text-info">Ninguna</i>' ?>
+                                            </td>
+                                            <td class="small">
+                                                <?= (!empty($obs_nueva) && $obs_nueva !== 'Sin observación') ? nl2br(htmlspecialchars($obs_nueva)) : '<i class="text-info">Ninguna</i>' ?>
                                             </td>
 
-                                            <!-- Observación nueva -->
-                                            <td style="max-width: 220px; word-wrap: break-word;">
-                                                <?php if (!empty($registro['observaciones_nueva'])): ?>
-                                                    <span class="text-dark"><?= nl2br(htmlspecialchars($registro['observaciones_nueva'])) ?></span>
-                                                <?php else: ?>
-                                                    <em>Sin observación</em>
-                                                <?php endif; ?>
-                                            </td>
-
-                                            <!-- ✅ Tipo de cambio en mayúsculas -->
                                             <td class="text-center">
-                                                <span class="badge badge-info text-uppercase">
-                                                    <?= htmlspecialchars(strtoupper($registro['tipo_cambio'])) ?>
+                                                <span class="badge badge-<?= $badge_color ?> text-uppercase">
+                                                    <?= htmlspecialchars($tipo_cambio) ?>
                                                 </span>
                                             </td>
 
-                                            <!-- ✅ Usuario (nombre completo del docente o quien hizo el cambio) -->
-                                            <td class="text-center">
-                                                <span class="badge badge-secondary">
-                                                    <?= htmlspecialchars($registro['usuario_cambio']) ?>
-                                                </span>
+                                            <td class="small">
+                                                <?= htmlspecialchars($registro['usuario_cambio']) ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -136,3 +207,91 @@ $historial = $query->fetchAll(PDO::FETCH_ASSOC);
 include('../../admin/layout/parte2.php');
 include('../../layout/mensajes.php');
 ?>
+
+<script>
+$(document).ready(function() {
+    var tablaHistorial;
+    
+    // 1. Inicialización de DataTables
+    tablaHistorial = $('#tablaHistorialNotas').DataTable({
+        responsive: true,
+        autoWidth: false,
+        order: [[1, 'desc']], 
+        language: {
+            "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json",
+            // Se añaden frases clave para máxima compatibilidad
+            "zeroRecords": "No se encontraron registros coincidentes",
+            "infoEmpty": "Mostrando 0 a 0 de 0 entradas",
+            "infoFiltered": "(filtrado de un total de _MAX_ entradas)",
+            "lengthMenu": "Mostrar _MENU_ entradas",
+            "search": "Buscar:",
+            "info": "Mostrando _START_ a _END_ de _TOTAL_ entradas"
+        },
+    });
+    
+    // 2. FILTRO GLOBAL PERSONALIZADO
+    $.fn.dataTable.ext.search.push(
+        function(settings, data, dataIndex) {
+            
+            // Filtro 1: Tipo Cambio (Columna 10)
+            var filtro_tipo = $('.btn-filter-tipo.active').data('filter');
+            var tipo_cambio_columna = data[10].toUpperCase().replace(/<[^>]*>/g, '').trim(); 
+
+            if (filtro_tipo !== 'todas' && tipo_cambio_columna !== filtro_tipo) {
+                return false;
+            }
+
+            // Filtro 2: Gestión (Columna 5)
+            var filtro_gestion = $('#filtro-gestion').val();
+            var gestion_columna = data[5].trim(); 
+
+            if (filtro_gestion !== '' && gestion_columna !== filtro_gestion) {
+                return false;
+            }
+
+            return true; 
+        }
+    );
+
+    // 3. EVENTO: Botones de Tipo Cambio (Filtro instantáneo)
+    $('.btn-filter-tipo').on('click', function() {
+        $('.btn-filter-tipo').removeClass('active').addClass('btn-outline-primary');
+        $(this).removeClass('btn-outline-primary').addClass('active');
+        tablaHistorial.draw(); 
+    });
+
+    // 4. EVENTO: Select de Gestión (Filtro instantáneo)
+    $('#filtro-gestion').on('change', function() {
+        tablaHistorial.draw(); 
+    });
+    
+    // 5. EVENTO: Actualizar Contadores al redibujar
+    tablaHistorial.on('draw.dt', function() {
+        actualizarContadores();
+    });
+
+    // 6. FUNCIÓN CONTADOR 
+    function actualizarContadores() {
+        var data_filtrada = tablaHistorial.rows({ filter: 'applied' }).data();
+        var total = data_filtrada.length;
+        var creacion_count = 0;
+        var actualizacion_count = 0;
+
+        for (var i = 0; i < total; i++) {
+            var tipo = data_filtrada[i][10].toUpperCase().replace(/<[^>]*>/g, '').trim(); 
+            
+            if (tipo === 'CREACION') {
+                creacion_count++;
+            } else if (tipo === 'ACTUALIZACION') {
+                actualizacion_count++;
+            }
+        }
+        
+        $('.btn-filter-tipo[data-filter="todas"] .badge').text(total);
+        $('.btn-filter-tipo[data-filter="CREACION"] .badge').text(creacion_count);
+        $('.btn-filter-tipo[data-filter="ACTUALIZACION"] .badge').text(actualizacion_count);
+    }
+    
+    tablaHistorial.draw();
+});
+</script>

@@ -24,6 +24,7 @@ try {
     $duplicates_list = [];
 
     // preparar statements
+    // 1) check existencia para el mismo profesor (lo que ya tenías)
     $stmt_check = $pdo->prepare("
         SELECT COUNT(*) 
         FROM asignaciones_profesor
@@ -31,6 +32,18 @@ try {
           AND id_materia = :id_materia 
           AND id_seccion = :id_seccion 
           AND id_gestion = :id_gestion
+    ");
+
+    // 2) check existencia EN OTRO profesor (conflicto)
+    $stmt_conflict = $pdo->prepare("
+        SELECT ap.id_profesor, CONCAT(p.nombres,' ',p.apellidos) AS nombre_profesor
+        FROM asignaciones_profesor ap
+        JOIN profesores p ON p.id_profesor = ap.id_profesor
+        WHERE ap.id_materia = :id_materia
+          AND ap.id_seccion = :id_seccion
+          AND ap.id_gestion = :id_gestion
+          AND ap.estado = 1
+        LIMIT 1
     ");
 
     $stmt_insert = $pdo->prepare("
@@ -63,14 +76,24 @@ try {
         foreach ($materias as $m) {
             $id_materia = intval($m);
 
-            // verificar duplicado
+            // verificar duplicado para el mismo profesor (lo que ya tenías)
             $stmt_check->execute([
                 ':id_profesor' => $id_profesor,
                 ':id_materia'  => $id_materia,
                 ':id_seccion'  => $id_seccion,
                 ':id_gestion'  => $id_gestion
             ]);
-            $exists = (int)$stmt_check->fetchColumn();
+            $exists_same_prof = (int)$stmt_check->fetchColumn();
+
+            // verificar conflicto con OTRO profesor (nueva comprobación)
+            $stmt_conflict->execute([
+                ':id_materia' => $id_materia,
+                ':id_seccion' => $id_seccion,
+                ':id_gestion' => $id_gestion
+            ]);
+            $conflict_row = $stmt_conflict->fetch(PDO::FETCH_ASSOC);
+            $conflict_profesor_nombre = $conflict_row ? $conflict_row['nombre_profesor'] : null;
+            $conflict_profesor_id = $conflict_row ? intval($conflict_row['id_profesor']) : 0;
 
             // obtener detalle completo
             $stmt_detalle->execute([
@@ -85,23 +108,31 @@ try {
                 ? "{$info['nombre_materia']} – {$info['nombre_grado']} – Sección {$info['nombre_seccion']} ({$info['periodo']})"
                 : "Materia ID $id_materia en Sección ID $id_seccion (Gestión $id_gestion)";
 
-            if ($exists === 0) {
-                $stmt_insert->execute([
-                    ':id_profesor' => $id_profesor,
-                    ':id_materia'  => $id_materia,
-                    ':id_seccion'  => $id_seccion,
-                    ':id_gestion'  => $id_gestion
-                ]);
-                $inserted++;
-                $inserted_list[] = $texto;
+            if ($exists_same_prof === 0) {
+                if ($conflict_row && $conflict_profesor_id !== $id_profesor) {
+                    // ya está asignada a otro profesor -> consideramos esto conflicto/duplicado
+                    $duplicates++;
+                    $duplicates_list[] = "{$texto} — ya está asignada al profesor <strong>{$conflict_profesor_nombre}</strong>";
+                } else {
+                    // No conflict, proceder a insertar
+                    $stmt_insert->execute([
+                        ':id_profesor' => $id_profesor,
+                        ':id_materia'  => $id_materia,
+                        ':id_seccion'  => $id_seccion,
+                        ':id_gestion'  => $id_gestion
+                    ]);
+                    $inserted++;
+                    $inserted_list[] = $texto;
+                }
             } else {
+                // ya existe la asignación para este mismo profesor
                 $duplicates++;
-                $duplicates_list[] = $texto;
+                $duplicates_list[] = "{$texto} — ya asignada a este profesor";
             }
         }
     }
 
-    // construir respuesta
+    // construir respuesta (igual que antes, con listas)
     if ($inserted > 0 && $duplicates === 0) {
         $titulo = $inserted === 1 ? 'Asignación guardada' : 'Asignaciones guardadas';
         $mensaje = $inserted === 1 
@@ -122,7 +153,7 @@ try {
     } elseif ($inserted > 0 && $duplicates > 0) {
         $titulo = 'Asignaciones parciales';
         $mensaje = ($inserted === 1 ? "✅ 1 nueva asignación guardada.<br>" : "✅ $inserted nuevas asignaciones guardadas.<br>")
-                 . "⚠️ $duplicates ya existían y no se duplicaron.";
+                 . "⚠️ $duplicates no se procesaron por duplicados o conflictos.";
 
         $lista_asignadas = "<ul style='text-align:left; margin-top:10px;'>" .
                            implode('', array_map(fn($t)=>"<li>✅ $t</li>", $inserted_list)) .
@@ -136,7 +167,7 @@ try {
             'status'=>'ok',
             'tipo'=>'warning',
             'titulo'=>$titulo,
-            'mensaje'=>"$mensaje<br><br><strong>Asignadas:</strong>$lista_asignadas<br><strong>Ya asignadas:</strong>$lista_existentes"
+            'mensaje'=>"$mensaje<br><br><strong>Asignadas:</strong>$lista_asignadas<br><strong>No procesadas:</strong>$lista_existentes"
         ];
 
     } elseif ($inserted === 0 && $duplicates > 0) {
@@ -147,8 +178,8 @@ try {
         $resp = [
             'status'=>'ok',
             'tipo'=>'error',
-            'titulo'=>'Asignación existente',
-            'mensaje'=>"La asignación seleccionada ya está registrada.<br><br><strong>Detalles:</strong>$lista"
+            'titulo'=>'Asignación existente o conflicto',
+            'mensaje'=>"La(s) asignación(es) seleccionada(s) no se pudieron registrar por ya existir o por estar asignadas a otro profesor.<br><br><strong>Detalles:</strong>$lista"
         ];
     } else {
         $resp = [

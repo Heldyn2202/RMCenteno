@@ -63,6 +63,17 @@ foreach ($asignaciones_actuales as $a) {
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+<style>
+/* Flecha en el botón de periodo: gira cuando tiene la clase .open */
+.period-toggle .arrow-icon {
+  float: right;
+  transition: transform .2s ease;
+}
+.period-toggle.open .arrow-icon {
+  transform: rotate(180deg);
+}
+</style>
+
 <div class="content-wrapper">
   <div class="content">
     <div class="container py-3">
@@ -88,6 +99,7 @@ foreach ($asignaciones_actuales as $a) {
                     <button type="button" class="btn btn-outline-secondary w-100 text-start period-toggle" data-index="<?= $idx ?>">
                       <strong><?= htmlspecialchars($periodo) ?></strong>
                       <span class="badge bg-secondary ms-2"><?= count($items) ?></span>
+                      <i class="fas fa-chevron-down arrow-icon"></i>
                     </button>
 
                     <div class="period-content mt-2 d-none" id="period-content-<?= $idx ?>">
@@ -123,7 +135,7 @@ foreach ($asignaciones_actuales as $a) {
                   <select name="id_seccion[]" class="form-control selectSeccion" required>
                     <option value="">Seleccione una sección</option>
                     <?php
-                    // Mostrar optgroups agrupadas por grado
+                    // Mostrar optgroups agrupadas por grado; OPTION TEXT incluye grado para que se vea al seleccionar
                     $seccionesAgrupadas = [];
                     foreach ($secciones as $s) {
                         $grado = $s['grado_text'];
@@ -137,7 +149,9 @@ foreach ($asignaciones_actuales as $a) {
                     foreach ($seccionesAgrupadas as $grado => $lista) {
                         echo "<optgroup label='" . htmlspecialchars($grado) . "'>";
                         foreach ($lista as $sec) {
-                            echo "<option value='{$sec['id_seccion']}'>Sección {$sec['nombre_seccion']}</option>";
+                            // Mostrar grado en el texto de la opción para que Select2 lo refleje al seleccionar
+                            $labelOption = htmlspecialchars($grado . ' - Sección ' . $sec['nombre_seccion']);
+                            echo "<option value='{$sec['id_seccion']}'>{$labelOption}</option>";
                         }
                         echo "</optgroup>";
                     }
@@ -189,11 +203,12 @@ foreach ($asignaciones_actuales as $a) {
                 <select name="id_seccion[]" class="form-control selectSeccion" required>
                   <option value="">Seleccione una sección</option>
                   <?php
-                  // Reutilizamos las optgroups para el template
+                  // Reutilizamos las optgroups para el template; la OPTION TEXT incluye grado
                   foreach ($seccionesAgrupadas as $grado => $lista) {
                       echo "<optgroup label='" . htmlspecialchars($grado) . "'>";
                       foreach ($lista as $sec) {
-                          echo "<option value='{$sec['id_seccion']}'>Sección {$sec['nombre_seccion']}</option>";
+                          $labelOption = htmlspecialchars($grado . ' - Sección ' . $sec['nombre_seccion']);
+                          echo "<option value='{$sec['id_seccion']}'>{$labelOption}</option>";
                       }
                       echo "</optgroup>";
                   }
@@ -292,12 +307,15 @@ $(function(){
     }
   });
 
-  // Toggle acordeón de asignaciones actuales por período
+  // Toggle acordeón de asignaciones actuales por período (con rotación de flecha)
   document.querySelectorAll('.period-toggle').forEach(function(btn){
     btn.addEventListener('click', function(){
       var idx = this.getAttribute('data-index');
       var content = document.getElementById('period-content-' + idx);
-      if (content) content.classList.toggle('d-none');
+      if (content) {
+        content.classList.toggle('d-none');
+        this.classList.toggle('open'); // para girar la flecha
+      }
     });
   });
 
@@ -360,6 +378,8 @@ $(function(){
           Swal.fire({ icon: 'error', title: 'Error', text: 'Respuesta inválida del servidor' });
           return;
         }
+        // resp.tipo controla icono; el servidor ahora puede devolver mensajes indicando que
+        // la materia ya está asignada a otro profesor (el texto lo incluye).
         Swal.fire({
           icon: resp.tipo,
           title: resp.titulo,

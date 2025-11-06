@@ -9,15 +9,71 @@ $query_gestion = $pdo->prepare($sql_gestion);
 $query_gestion->execute();
 $gestion_activa = $query_gestion->fetch(PDO::FETCH_ASSOC);
 
+// ----------------------------
+// Detectar si el usuario es docente
+// ----------------------------
+$rol_sesion = $_SESSION['rol_sesion_usuario'] ?? $_SESSION['rol'] ?? null;
+$rol_id    = $_SESSION['rol_id'] ?? null;
+$es_docente_flag = $_SESSION['es_docente'] ?? false;
+
+// Intentar obtener id_profesor desde la sesión (si tu sistema lo guarda ahí)
+$id_profesor = $_SESSION['id_profesor'] ?? null;
+
+// Si es docente y no tenemos id_profesor en sesión, intentar cargar el verificador (si existe)
+if (($es_docente_flag || $rol_id == 5 || (is_string($rol_sesion) && stripos($rol_sesion, 'doc') !== false)) && empty($id_profesor)) {
+    // intentamos incluir el helper verificar_docente si está disponible en ruta relativa
+    // Ajusta las rutas si en tu proyecto el archivo está en otra ubicación
+    if (file_exists(__DIR__ . '/../../../verificar_docente.php')) {
+        require_once(__DIR__ . '/../../../verificar_docente.php');
+    } elseif (file_exists(__DIR__ . '/../../verificar_docente.php')) {
+        require_once(__DIR__ . '/../../verificar_docente.php');
+    } elseif (file_exists(__DIR__ . '/../../admin/verificar_docente.php')) {
+        require_once(__DIR__ . '/../../admin/verificar_docente.php');
+    }
+
+    if (function_exists('verificarDocente')) {
+        try {
+            $datos_docente = verificarDocente();
+            if (!empty($datos_docente['id_profesor'])) {
+                $id_profesor = $datos_docente['id_profesor'];
+                // opcional: mantener en sesión para futuras páginas
+                $_SESSION['id_profesor'] = $id_profesor;
+            }
+        } catch (Throwable $e) {
+            // no hacer nada, fallback a mostrar todas las secciones
+        }
+    }
+}
+
 // 🔹 Secciones
-$sql_secciones = "SELECT s.id_seccion, CONCAT(g.grado, ' - ', s.nombre_seccion) AS nombre
-                  FROM secciones s  
-                  INNER JOIN grados g ON g.id_grado = s.id_grado
-                  WHERE s.estado = 1
-                  ORDER BY g.id_grado, s.nombre_seccion";
-$query_secciones = $pdo->prepare($sql_secciones);
-$query_secciones->execute();
-$secciones = $query_secciones->fetchAll(PDO::FETCH_ASSOC);
+// Si es docente y tenemos $id_profesor -> solo traer las secciones asignadas a ese profesor en la gestión activa
+if (!empty($id_profesor) && ($es_docente_flag || $rol_id == 5 || (is_string($rol_sesion) && stripos($rol_sesion, 'doc') !== false))) {
+    $sql_secciones = "SELECT DISTINCT s.id_seccion, CONCAT(g.grado, ' - ', s.nombre_seccion) AS nombre
+                      FROM secciones s
+                      INNER JOIN grados g ON g.id_grado = s.id_grado
+                      INNER JOIN asignaciones_profesor ap ON ap.id_seccion = s.id_seccion
+                      WHERE s.estado = 1
+                        AND ap.estado = 1
+                        AND ap.id_profesor = :id_profesor
+                        AND ap.id_gestion = :id_gestion
+                      ORDER BY g.id_grado, s.nombre_seccion";
+    $query_secciones = $pdo->prepare($sql_secciones);
+    $query_secciones->execute([
+        ':id_profesor' => $id_profesor,
+        ':id_gestion'  => $gestion_activa['id_gestion'] ?? 0
+    ]);
+    $secciones = $query_secciones->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    // administrador u otros roles -> listar todas las secciones activas (comportamiento original)
+    $sql_secciones = "SELECT s.id_seccion, CONCAT(g.grado, ' - ', s.nombre_seccion) AS nombre
+                      FROM secciones s  
+                      INNER JOIN grados g ON g.id_grado = s.id_grado
+                      WHERE s.estado = 1
+                      ORDER BY g.id_grado, s.nombre_seccion";
+    $query_secciones = $pdo->prepare($sql_secciones);
+    $query_secciones->execute();
+    $secciones = $query_secciones->fetchAll(PDO::FETCH_ASSOC);
+}
 
 // 🔹 Lapsos
 $sql_lapsos = "SELECT id_lapso, nombre_lapso FROM lapsos WHERE id_gestion = :id_gestion ORDER BY fecha_inicio";
@@ -114,6 +170,9 @@ if ($id_seccion && !empty($id_lapsos)) {
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                                <?php if (!empty($id_profesor) && ($es_docente_flag || $rol_id == 5 || (is_string($rol_sesion) && stripos($rol_sesion,'doc')!==false))): ?>
+                                    <small class="text-muted">Mostrando únicamente las secciones que usted imparte en la gestión activa.</small>
+                                <?php endif; ?>
                             </div>
 
                             <!-- Checkboxes de lapsos -->
