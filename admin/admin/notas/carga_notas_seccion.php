@@ -97,6 +97,14 @@ $query_lapsos->bindParam(':id_gestion', $gestion_activa['id_gestion']);
 $query_lapsos->execute();
 $lapsos = $query_lapsos->fetchAll(PDO::FETCH_ASSOC);
 
+// 🔹 Preparación para detectar "tercer lapso" por posición
+$lapsos_ids_ordered = array_column($lapsos, 'id_lapso'); // mantiene el orden por fecha_inicio
+$lapso_pos = null;
+if (!empty($lapsos_ids_ordered) && isset($_GET['lapso'])) {
+    $lapso_pos = array_search(intval($_GET['lapso']), $lapsos_ids_ordered);
+}
+$es_tercer_lapso = ($lapso_pos !== false && $lapso_pos === 2); // índice 2 => 3er lapso en orden
+
 // 🔹 Variables para filtros
 $id_seccion_filtro = $_GET['seccion'] ?? null;
 $id_materia_filtro = $_GET['materia'] ?? null;
@@ -335,6 +343,14 @@ include('../../admin/layout/parte1.php');
                                         </button>
                                     </div>
                                 </div>
+
+                                <!-- BOTÓN: Gestionar Recuperaciones (solo si es 3er lapso/posición 2) -->
+                                <?php if ($es_tercer_lapso): ?>
+                                    <a href="recuperaciones.php?seccion=<?= $id_seccion_filtro ?>&materia=<?= $id_materia_filtro ?>&lapso=<?= $id_lapso_filtro ?>"
+                                       class="" title="">
+                                       <i class=""></i> 
+                                    </a>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="card-body">
@@ -388,11 +404,20 @@ include('../../admin/layout/parte1.php');
                                             <th width="20%" class="text-center">Nueva Nota (0-20)</th>
                                             <th width="20%" class="text-center">Observación (si modificas)</th>
                                             <th width="15%" class="text-center">Estado</th>
+                                            <?php if ($es_tercer_lapso): ?>
+                                                <th width="15%" class="text-center">Condición Final</th>
+                                            <?php endif; ?>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <?php
                                         $contador = 1;
+                                        // Prepara el string de los 3 primeros lapsos (si existen)
+                                        $ids_3_lapsos_str = '';
+                                        if (count($lapsos_ids_ordered) >= 3) {
+                                            $ids_3 = array_slice($lapsos_ids_ordered, 0, 3);
+                                            $ids_3_lapsos_str = implode(',', array_map('intval', $ids_3));
+                                        }
                                         foreach ($estudiantes as $estudiante):
                                             // Obtener nota y observación si existe
                                             $sql_nota = "
@@ -412,6 +437,78 @@ include('../../admin/layout/parte1.php');
                                             $observacion_actual = $nota_existente ? $nota_existente['observaciones'] : '';
                                             $estado_clase = $nota_existente ? 'badge-success' : 'badge-warning';
                                             $estado_texto = $nota_existente ? 'Cargada' : 'Pendiente';
+
+                                            // 🔹 Si es tercer lapso: calcular condición final usando las 3 notas (solo si hay 3)
+                                            $condicion_final = '';
+                                            if ($es_tercer_lapso && $ids_3_lapsos_str !== '') {
+                                                $sql_promedio = "
+                                                    SELECT AVG(calificacion) AS promedio, COUNT(calificacion) AS cnt
+                                                    FROM notas_estudiantes
+                                                    WHERE id_estudiante = :id_estudiante_prom
+                                                      AND id_materia = :id_materia_prom
+                                                      AND id_lapso IN ($ids_3_lapsos_str)
+                                                      AND calificacion IS NOT NULL
+                                                ";
+                                                $q_prom = $pdo->prepare($sql_promedio);
+                                                $q_prom->bindParam(':id_estudiante_prom', $estudiante['id_estudiante']);
+                                                $q_prom->bindParam(':id_materia_prom', $id_materia_filtro);
+                                                $q_prom->execute();
+                                                $row_prom = $q_prom->fetch(PDO::FETCH_ASSOC);
+                                                $prom = $row_prom['promedio'] ?? null;
+                                                $cnt = intval($row_prom['cnt'] ?? 0);
+
+                                                if ($cnt === 3 && $prom !== null) {
+                                                    // Nueva lógica solicitada:
+                                                    // - Promedio >= 10 => Aprobado
+                                                    // - Promedio < 10  => Revisión (por defecto)
+                                                    if (floatval($prom) >= 10) {
+                                                        $condicion_final = '<span class="badge badge-success">Aprobado</span>';
+                                                    } else {
+                                                        // Por defecto mostrar "Revisión"
+                                                        $condicion_final = '<span class="badge badge-warning">Revisión</span>';
+
+                                                        // Intentar detectar si ya existe una nota de recuperación (lapso de recuperación).
+                                                        // Buscamos un lapso cuya descripción contenga 'recuper' en la gestión activa.
+                                                        $sql_lap_rec = "SELECT id_lapso FROM lapsos WHERE id_gestion = :id_gestion AND (nombre_lapso LIKE '%recuper%' OR nombre_lapso LIKE '%recup%') LIMIT 1";
+                                                        $q_lap_rec = $pdo->prepare($sql_lap_rec);
+                                                        $q_lap_rec->bindParam(':id_gestion', $gestion_activa['id_gestion']);
+                                                        $q_lap_rec->execute();
+                                                        $lap_rec_row = $q_lap_rec->fetch(PDO::FETCH_ASSOC);
+
+                                                        if ($lap_rec_row && !empty($lap_rec_row['id_lapso'])) {
+                                                            $id_lap_rec = $lap_rec_row['id_lapso'];
+                                                            // Obtener la nota de recuperación (si existe)
+                                                            $sql_rec_nota = "
+                                                                SELECT calificacion FROM notas_estudiantes
+                                                                WHERE id_estudiante = :id_estudiante_rec
+                                                                  AND id_materia = :id_materia_rec
+                                                                  AND id_lapso = :id_lapso_rec
+                                                                LIMIT 1
+                                                            ";
+                                                            $q_rec = $pdo->prepare($sql_rec_nota);
+                                                            $q_rec->bindParam(':id_estudiante_rec', $estudiante['id_estudiante']);
+                                                            $q_rec->bindParam(':id_materia_rec', $id_materia_filtro);
+                                                            $q_rec->bindParam(':id_lapso_rec', $id_lap_rec);
+                                                            $q_rec->execute();
+                                                            $row_rec = $q_rec->fetch(PDO::FETCH_ASSOC);
+
+                                                            if ($row_rec && $row_rec['calificacion'] !== null && $row_rec['calificacion'] !== '') {
+                                                                $nota_rec = floatval($row_rec['calificacion']);
+                                                                if ($nota_rec >= 10) {
+                                                                    // Si aprobó en la recuperación => aprobado final
+                                                                    $condicion_final = '<span class="badge badge-success">Aprobado</span>';
+                                                                } else {
+                                                                    // Si reprobó en recuperación => materia pendiente
+                                                                    $condicion_final = '<span class="badge badge-danger">Materia pendiente</span>';
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    // No hay las 3 notas todavía
+                                                    $condicion_final = '<span class="badge badge-secondary">Sin datos</span>';
+                                                }
+                                            }
                                         ?>
                                         <tr class="fila-estudiante" data-cedula="<?= htmlspecialchars($estudiante['cedula']) ?>" data-nombre="<?= htmlspecialchars($estudiante['apellidos'] . ' ' . $estudiante['nombres']) ?>">
                                             <td><?= $contador++ ?></td>
@@ -459,6 +556,10 @@ include('../../admin/layout/parte1.php');
                                                     <?= $estado_texto ?>
                                                 </span>
                                             </td>
+
+                                            <?php if ($es_tercer_lapso): ?>
+                                                <td class="text-center"><?= $condicion_final ?></td>
+                                            <?php endif; ?>
                                         </tr>
                                         <?php endforeach; ?>
                                     </tbody>
@@ -470,6 +571,15 @@ include('../../admin/layout/parte1.php');
                                             <button type="button" class="btn btn-info btn-lg mr-3" onclick="validarNotas()">
                                                 <i class="fas fa-check-circle"></i> Validar Notas
                                             </button>
+
+                                            <!-- Botón más visible para gestionar recuperaciones (se añade aquí, grande y destacado) -->
+                                            <?php if ($es_tercer_lapso): ?>
+                                                <a href="recuperaciones.php?seccion=<?= $id_seccion_filtro ?>&materia=<?= $id_materia_filtro ?>&lapso=<?= $id_lapso_filtro ?>" 
+                                                   class="btn btn-warning btn-lg mr-3" title="Gestionar Recuperaciones">
+                                                    <i class="fas fa-book-open"></i> Gestionar Recuperaciones
+                                                </a>
+                                            <?php endif; ?>
+
                                             <button type="button" class="btn btn-success btn-lg" onclick="confirmarGuardado()">
                                                 <i class="fas fa-save"></i> Guardar Todas las Notas
                                             </button>
@@ -499,11 +609,10 @@ include('../../admin/layout/parte1.php');
 include('../../admin/layout/parte2.php');
 include('../../layout/mensajes.php');
 ?>
-
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-// Inicializar cuando el documento esté listo
+// --- Inicialización única (conserva todas tus funciones y validaciones) ---
 document.addEventListener('DOMContentLoaded', function() {
     // Inicializar resumen
     actualizarResumen();
@@ -539,9 +648,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Validación de rango al escribir
+    // Validación de rango al escribir (delegada)
     document.addEventListener('input', function(e) {
-        if (e.target.classList.contains('nota-input')) {
+        if (e.target.classList && e.target.classList.contains('nota-input')) {
             let valor = parseFloat(e.target.value);
             if (isNaN(valor)) {
                 // allow empty
@@ -553,8 +662,68 @@ document.addEventListener('DOMContentLoaded', function() {
             actualizarResumen();
         }
     });
+
+    // 🔒 BLOQUEO AUTOMÁTICO + ACTUALIZAR PLACEHOLDERS
+    const selectMateria = document.getElementById('select_materia');
+    const notaInputs = document.querySelectorAll('.nota-input');
+
+    function actualizarBloqueo() {
+        if (!selectMateria) return;
+        const materiaSeleccionada = selectMateria.value.trim() !== '';
+        notaInputs.forEach(input => {
+            input.disabled = !materiaSeleccionada;
+            if (!materiaSeleccionada) {
+                input.placeholder = 'Seleccione una materia primero';
+                input.classList.add('bg-light');
+            } else {
+                input.placeholder = '0.00';
+                input.classList.remove('bg-light');
+            }
+        });
+    }
+
+    if (selectMateria) {
+        actualizarBloqueo();
+        selectMateria.addEventListener('change', actualizarBloqueo);
+    }
+
+    // Mostrar advertencia si intenta escribir o hacer clic sin materia
+    // Usamos delegación sobre la tabla para cubrir clicks sobre inputs deshabilitados
+    const tabla = document.getElementById('tabla-estudiantes');
+    if (tabla) {
+        tabla.addEventListener('click', function(evt) {
+            const target = evt.target;
+            const selectVal = (selectMateria && selectMateria.value) ? selectMateria.value.trim() : '';
+            const clickedNotaInput = target.closest('.nota-input') || target.closest('.input-group') || target.closest('.input-group-append') || target.classList.contains('nota-input');
+            if (!selectVal && clickedNotaInput) {
+                evt.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Seleccione una materia',
+                    text: 'Debe seleccionar una materia antes de ingresar notas.',
+                    confirmButtonText: 'Entendido'
+                });
+                return;
+            }
+        });
+    }
+
+    // Además, si por alguna razón inputs no están deshabilitados, también añadimos click directo
+    notaInputs.forEach(input => {
+        input.addEventListener('click', function() {
+            if (selectMateria && !selectMateria.value.trim()) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Seleccione una materia',
+                    text: 'Debe seleccionar una materia antes de ingresar notas.',
+                    confirmButtonText: 'Entendido'
+                });
+            }
+        });
+    });
 });
 
+// ---------------- Funciones existentes (sin cambios lógicos) ----------------
 function limpiarBusqueda() {
     const buscador = document.getElementById('buscador-estudiantes');
     if (buscador) buscador.value = '';
@@ -575,7 +744,6 @@ function actualizarEstadoObservacion(input, idEstudiante) {
     const campoObservacion = document.getElementById('observacion-' + idEstudiante);
 
     if (campoObservacion) {
-        // Verificar si hay una nota original y si el valor actual es diferente
         const hayNotaOriginal = notaOriginal !== '' && notaOriginal !== null && notaOriginal !== 'null';
         const valorDiferente = valor !== '' && valor !== notaOriginal;
         const hayCambio = hayNotaOriginal && valorDiferente;
@@ -588,7 +756,6 @@ function actualizarEstadoObservacion(input, idEstudiante) {
         } else {
             campoObservacion.style.display = 'none';
             campoObservacion.required = false;
-            // Limpiar observación si no hay cambio real
             if (valor === notaOriginal || valor === '') {
                 campoObservacion.value = '';
             }
@@ -727,15 +894,14 @@ function confirmarGuardado() {
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
-            // Enviar formulario
             document.getElementById('form-carga-masiva').submit();
         }
     });
 }
 
-// Actualizar cuando se escribe en el input
+// Actualizar cuando se escribe en el input (delegado en todo el documento)
 document.addEventListener('input', function(e) {
-    if (e.target.classList.contains('nota-input')) {
+    if (e.target.classList && e.target.classList.contains('nota-input')) {
         const match = e.target.name.match(/\[(\d+)\]/);
         if (match) {
             const idEstudiante = match[1];
