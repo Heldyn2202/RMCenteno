@@ -4,7 +4,7 @@ $datos_docente = verificarDocente();
 include('../../admin/layout/parte1.php');
 
 // =======================================================
-// 1. ESTILO PERSONALIZADO PARA ENCABEZADOS DE TABLA (HOVER CORREGIDO)
+// 1. ESTILO PERSONALIZADO PARA ENCABEZADOS DE TABLA
 // =======================================================
 ?>
 <style>
@@ -29,30 +29,29 @@ include('../../admin/layout/parte1.php');
 
 <?php
 // =======================================================
-// 2. LÓGICA PHP OPTIMIZADA
+// 2. LÓGICA PHP OPTIMIZADA (SIN REFERENCIA A id_gestion)
 // =======================================================
 
-// Consulta principal: utiliza el JOIN optimizado a gestiones
+// Consulta principal: ELIMINAMOS la referencia a hn.id_gestion
 $sql = "SELECT 
             hn.*, 
             e.nombres, 
             e.apellidos, 
             m.nombre_materia, 
-            l.nombre_lapso,
-            CONCAT(YEAR(g.desde), ' - ', YEAR(g.hasta)) AS nombre_gestion  
+            l.nombre_lapso
+            -- nombre_gestion ya no se puede obtener directamente de hn
         FROM historial_notas hn
         INNER JOIN estudiantes e ON hn.id_estudiante = e.id_estudiante
         INNER JOIN materias m ON hn.id_materia = m.id_materia
         INNER JOIN lapsos l ON hn.id_lapso = l.id_lapso
-        INNER JOIN gestiones g ON hn.id_gestion = g.id_gestion 
+        -- INNER JOIN gestiones g ON hn.id_gestion = g.id_gestion -- ELIMINADO: Columna no encontrada
         WHERE hn.estado = 1
         ORDER BY hn.fecha_cambio DESC";
 $query = $pdo->prepare($sql);
 $query->execute(); 
 $historial = $query->fetchAll(PDO::FETCH_ASSOC);
 
-// Extracción de gestiones disponibles para el filtro Select
-// ✅ CORRECCIÓN GESTIÓN: Quitamos WHERE estado = 1 para mostrar TODAS las gestiones (Históricas y activas)
+// Extracción de gestiones disponibles para el filtro Select (Mantenida, pero el filtro no funcionará con los datos de la tabla)
 try {
     $gestiones_disponibles_query = $pdo->query("SELECT DISTINCT CONCAT(YEAR(desde), ' - ', YEAR(hasta)) AS gestion_nombre FROM gestiones ORDER BY desde DESC");
     $gestiones_disponibles = $gestiones_disponibles_query->fetchAll(PDO::FETCH_COLUMN);
@@ -131,7 +130,7 @@ $nota_nueva_color = 'primary';
                                         <th>Estudiante</th>
                                         <th>Materia</th>
                                         <th class="text-center">Lapso</th>
-                                        <th class="text-center">Gestión</th> 
+                                        
                                         <th class="text-center">N. Ant.</th>
                                         <th class="text-center">N. Nva.</th>
                                         <th>Obs. Ant.</th>
@@ -155,7 +154,6 @@ $nota_nueva_color = 'primary';
                                             <td><?= htmlspecialchars($registro['apellidos'] . ', ' . $registro['nombres']) ?></td>
                                             <td><?= htmlspecialchars($registro['nombre_materia']) ?></td>
                                             <td class="text-center"><?= htmlspecialchars($registro['nombre_lapso']) ?></td>
-                                            <td class="text-center"><?= htmlspecialchars($registro['nombre_gestion']) ?></td> 
                                             
                                             <td class="text-center">
                                                 <?php if ($registro['calificacion_anterior'] !== null): ?>
@@ -229,26 +227,21 @@ $(document).ready(function() {
         },
     });
     
-    // 2. FILTRO GLOBAL PERSONALIZADO
+    // 2. FILTRO GLOBAL PERSONALIZADO (SIN FILTRO DE GESTIÓN)
     $.fn.dataTable.ext.search.push(
         function(settings, data, dataIndex) {
             
-            // Filtro 1: Tipo Cambio (Columna 10)
+            // Filtro 1: Tipo Cambio (Columna 9, ya que eliminamos la 5 - Gestión)
             var filtro_tipo = $('.btn-filter-tipo.active').data('filter');
-            var tipo_cambio_columna = data[10].toUpperCase().replace(/<[^>]*>/g, '').trim(); 
+            // La columna de Tipo (que era 10) ahora es 9
+            var tipo_cambio_columna = data[9].toUpperCase().replace(/<[^>]*>/g, '').trim(); 
 
             if (filtro_tipo !== 'todas' && tipo_cambio_columna !== filtro_tipo) {
                 return false;
             }
 
-            // Filtro 2: Gestión (Columna 5)
-            var filtro_gestion = $('#filtro-gestion').val();
-            var gestion_columna = data[5].trim(); 
-
-            if (filtro_gestion !== '' && gestion_columna !== filtro_gestion) {
-                return false;
-            }
-
+            // Filtro 2: Gestión (ELIMINADO, la lógica de filtro de gestión también se quita)
+            
             return true; 
         }
     );
@@ -260,10 +253,12 @@ $(document).ready(function() {
         tablaHistorial.draw(); 
     });
 
-    // 4. EVENTO: Select de Gestión (Filtro instantáneo)
+    // 4. EVENTO: Select de Gestión (ELIMINADO: No hay gestión que filtrar en el código actual)
+    /*
     $('#filtro-gestion').on('change', function() {
         tablaHistorial.draw(); 
     });
+    */
     
     // 5. EVENTO: Actualizar Contadores al redibujar
     tablaHistorial.on('draw.dt', function() {
@@ -278,7 +273,8 @@ $(document).ready(function() {
         var actualizacion_count = 0;
 
         for (var i = 0; i < total; i++) {
-            var tipo = data_filtrada[i][10].toUpperCase().replace(/<[^>]*>/g, '').trim(); 
+            // Columna de Tipo (Ahora es la 9)
+            var tipo = data_filtrada[i][9].toUpperCase().replace(/<[^>]*>/g, '').trim(); 
             
             if (tipo === 'CREACION') {
                 creacion_count++;

@@ -1,25 +1,62 @@
 <?php
 include ('../../app/config.php');
 
-// Obtener datos del formulario
-$id_plantilla = $_POST['id_plantilla'];
-$fecha_vencimiento = $_POST['fecha_vencimiento'];
-$id_estudiante = $_POST['id_estudiante'];
-$color_texto = isset($_POST['color_texto']) ? $_POST['color_texto'] : 'black';
-$color_encabezado = isset($_POST['color_encabezado']) ? $_POST['color_encabezado'] : 'white';
+// Obtener datos del estudiante
+$id_estudiante = $_GET['id_estudiante'] ?? $_POST['id_estudiante'] ?? null;
 
-// Obtener información del estudiante seleccionado incluyendo el grado
-$query_estudiante = $pdo->prepare("
-    SELECT e.*, g.grado as nombre_grado, s.nombre_seccion 
-    FROM estudiantes e
-    JOIN inscripciones i ON e.id_estudiante = i.id_estudiante
-    JOIN grados g ON i.grado = g.id_grado
-    JOIN secciones s ON i.id_seccion = s.id_seccion
-    WHERE e.id_estudiante = :id_estudiante
+if (!$id_estudiante) {
+    die("Error: No se especificó el estudiante");
+}
+
+// Obtener fecha de vencimiento (si se envía por formulario)
+$fecha_vencimiento = $_POST['fecha_vencimiento'] ?? date('Y-m-d', strtotime('+1 year'));
+
+// Primero, obtener los datos básicos del estudiante
+$query_estudiante_basic = $pdo->prepare("
+    SELECT * FROM estudiantes 
+    WHERE id_estudiante = :id_estudiante
 ");
-$query_estudiante->bindParam(':id_estudiante', $id_estudiante);
-$query_estudiante->execute();
-$estudiante = $query_estudiante->fetch(PDO::FETCH_ASSOC);
+$query_estudiante_basic->bindParam(':id_estudiante', $id_estudiante);
+$query_estudiante_basic->execute();
+$estudiante = $query_estudiante_basic->fetch(PDO::FETCH_ASSOC);
+
+if (!$estudiante) {
+    die("Error: Estudiante no encontrado");
+}
+
+// Luego, intentar obtener información del grado y sección si existen
+$query_inscripcion = $pdo->prepare("
+    SELECT 
+        g.grado as nombre_grado, 
+        s.nombre_seccion
+    FROM inscripciones i
+    LEFT JOIN grados g ON i.grado = g.id_grado
+    LEFT JOIN secciones s ON i.id_seccion = s.id_seccion
+    WHERE i.id_estudiante = :id_estudiante
+    LIMIT 1
+");
+$query_inscripcion->bindParam(':id_estudiante', $id_estudiante);
+$query_inscripcion->execute();
+$inscripcion_data = $query_inscripcion->fetch(PDO::FETCH_ASSOC);
+
+// Combinar los datos
+if ($inscripcion_data) {
+    $estudiante['nombre_grado'] = $inscripcion_data['nombre_grado'] ?? 'SIN GRADO ASIGNADO';
+    $estudiante['nombre_seccion'] = $inscripcion_data['nombre_seccion'] ?? '';
+} else {
+    $estudiante['nombre_grado'] = 'SIN GRADO ASIGNADO';
+    $estudiante['nombre_seccion'] = '';
+}
+
+// Si no hay grado asignado, usar un valor por defecto
+if (empty($estudiante['nombre_grado'])) {
+    $estudiante['nombre_grado'] = 'SIN GRADO ASIGNADO';
+}
+
+// Si no hay sección, usar valor por defecto
+if (empty($estudiante['nombre_seccion'])) {
+    $estudiante['nombre_seccion'] = '';
+}
 
 // Incluir la librería TCPDF
 require_once('../../app/tcpdf/tcpdf.php');
@@ -42,41 +79,57 @@ $pdf->SetAutoPageBreak(false, 0);
 // Agregar página para la parte DELANTERA
 $pdf->AddPage();
 
-// Obtener nombres y apellidos
-$nombres = $estudiante['nombres'];
-$apellidos = $estudiante['apellidos'];
+// CORREGIDO: Definir rutas absolutas para las imágenes
+$base_dir = dirname(dirname(dirname(__FILE__))); // Obtiene el directorio base del proyecto
 
-// Separar nombres y apellidos en dos líneas
-$partes_nombre = explode(' ', $nombres);
-$partes_apellido = explode(' ', $apellidos);
+// Ruta para la foto del estudiante
+$foto_estudiante_ruta = $base_dir . '/public/fotos_estudiantes/';
+$foto_default_ruta = $base_dir . '/public/images/no-image-available.png';
 
-$nombre_linea1 = $partes_nombre[0];
-$nombre_linea2 = count($partes_nombre) > 1 ? $partes_nombre[1] : '';
-
-$apellido_linea1 = $partes_apellido[0];
-$apellido_linea2 = count($partes_apellido) > 1 ? $partes_apellido[1] : '';
-
-// Usar siempre la foto predeterminada si no hay foto específica
-$foto_estudiante = '../../public/images/students/default.jpg';
-$mostrar_boton_estudiante = false;
+// Verificar si existe la foto del estudiante
+$mostrar_boton_estudiante = true;
+$foto_estudiante = $foto_default_ruta; // Por defecto usa la imagen no disponible
 
 if (!empty($estudiante['foto'])) {
-    // Verificar si existe la foto en la carpeta de estudiantes
-    $ruta_foto_estudiante = '../../public/images/students/' . $estudiante['foto'];
+    $ruta_foto_estudiante = $foto_estudiante_ruta . $estudiante['foto'];
     if (file_exists($ruta_foto_estudiante)) {
         $foto_estudiante = $ruta_foto_estudiante;
-    } else {
-        $mostrar_boton_estudiante = true;
+        $mostrar_boton_estudiante = false;
     }
-} else {
-    $mostrar_boton_estudiante = true;
 }
 
-// Generar datos para el código QR (igual para ambos lados)
+// Ruta para la MARCA DE AGUA (fondo transparente)
+$marca_agua_ruta = $base_dir . '/public/images/Texto del párrafo.png'; // Cambiado a nombre específico
+$marca_agua_default = $base_dir . '/public/images/no-image-available.png'; // Alternativa
+
+// Ruta para el LOGO (imagen normal)
+$logo_ruta = $base_dir . '/public/images/logo.png'; // Cambiado a nombre específico
+$logo_default = $base_dir . '/public/images/Texto del párrafo.png'; // Tu logo original como alternativa
+
+// Verificar si existe la marca de agua
+$marca_agua = '';
+if (file_exists($marca_agua_ruta)) {
+    $marca_agua = $marca_agua_ruta;
+} elseif (file_exists($marca_agua_default)) {
+    $marca_agua = $marca_agua_default;
+}
+
+// Verificar si existe el logo
+$logo = '';
+if (file_exists($logo_ruta)) {
+    $logo = $logo_ruta;
+} elseif (file_exists($logo_default)) {
+    $logo = $logo_default;
+}
+
+// Generar datos para el código QR
 $qrData = "ESTUDIANTE: " . $estudiante['nombres'] . " " . $estudiante['apellidos'] . "\n";
 $qrData .= "CÉDULA: " . $estudiante['tipo_cedula'] . "-" . $estudiante['cedula'] . "\n";
 $qrData .= "INSTITUCIÓN: ROBERTO MARTINEZ CENTENO\n";
-$qrData .= "NIVEL-GRADO-AÑO: " . $estudiante['nombre_grado'] . "\n";
+$qrData .= "GRADO: " . $estudiante['nombre_grado'] . "\n";
+if (!empty($estudiante['nombre_seccion'])) {
+    $qrData .= "SECCIÓN: " . $estudiante['nombre_seccion'] . "\n";
+}
 $qrData .= "VENCE: " . date('d/m/Y', strtotime($fecha_vencimiento));
 
 // Definir estilo para el código QR
@@ -89,6 +142,21 @@ $style = array(
     'module_width' => 1,
     'module_height' => 1
 );
+
+// CORREGIDO: AGREGAR SOLO LA MARCA DE AGUA (si existe)
+if (!empty($marca_agua) && file_exists($marca_agua)) {
+    $ancho_imagen = 40;
+    $alto_imagen = 40;
+
+    // Calcular posición centrada
+    $x_centro = (53.98 - $ancho_imagen) / 2;
+    $y_centro = (85.6 - $alto_imagen) / 2;
+
+    // Agregar la imagen como marca de agua (con transparencia)
+    $pdf->SetAlpha(1); // Más transparente para marca de agua
+    $pdf->Image($marca_agua, $x_centro, $y_centro, $ancho_imagen, $alto_imagen, '', '', '', false, 300, '', false, false, 0);
+    $pdf->SetAlpha(1);
+}
 
 // Crear el contenido HTML para la parte DELANTERA del carnet
 $html_front = '
@@ -105,14 +173,14 @@ $html_front = '
         background-color: white;
         color: black;
         text-align: center;
-        padding: 2px;
-        font-size: 5.5px;
-        line-height: 1.2;
+        font-size: 4.8px;
+        padding: 1px;
+        margin-bottom: 1px;
     }
     .subheader {
         width: 18mm;
         height: 18mm;
-        background-color: #003366; /* Azul marino */
+        background-color: #003366;
         color: white;
         display: flex;
         justify-content: center;
@@ -122,44 +190,39 @@ $html_front = '
         font-size: 8px;
         text-align: center;
         text-transform: uppercase;
-        margin: 0 auto; /* Centrar horizontalmente con márgenes automáticos */
-        margin-top: 2px; /* Espacio superior */
-        margin-bottom: 2px; /* Espacio inferior */
-    }
-    .content {
-        padding: 2px;
-    }
-    .institution-info {
-        text-align: center;
-        margin: 2px 0;
-        font-size: 5.5px;
-        line-height: 1.2;
+        margin: 0 auto;
+        margin-top: 1px;
+        margin-bottom: 2px;
     }
     .photo-container {
         text-align: center;
-        margin: 3px auto;
-        height: 25mm;
-        width: 25mm;
+        margin: 2px auto;
+        height: 20mm;
+        width: 20mm;
         display: flex;
         justify-content: center;
         align-items: center;
-        border: 1px solid #ccc;
         border-radius: 2px;
+        overflow: hidden;
+        position: relative;
     }
     .student-photo {
-        max-height: 24mm;
-        max-width: 24mm;
+        height: 20mm;
+        width: 20mm;
         object-fit: cover;
+        border: 2px solid #003366;
+        border-radius: 1px;
     }
     .student-info {
-        margin: 3px 0;
+        margin: 2px 0;
         font-size: 6px;
         line-height: 1.2;
+        text-align: center;
     }
     .info-label {
         font-weight: bold;
         display: inline-block;
-        width: 20mm;
+        width: 15mm;
     }
     .student-name {
         font-weight: bold;
@@ -168,6 +231,7 @@ $html_front = '
         margin: 2px 0;
         text-transform: uppercase;
         color: blue;
+        padding: 0 2px;
     }
     .footer {
         position: absolute;
@@ -182,12 +246,26 @@ $html_front = '
         text-align: center;
         margin: 2px 0;
     }
-    .qr-mini-area {
+    .content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    .no-photo {
+        font-size: 5px;
+        color: #666;
+        text-align: center;
         position: absolute;
-        bottom: 5mm;
-        right: 2mm;
-        width: 15mm;
-        height: 15mm;
+        bottom: 2px;
+        width: 100%;
+    }
+    .photo-frame {
+        border: 2px solid #003366;
+        border-radius: 3px;
+        padding: 1px;
+        background: white;
+        display: inline-block;
     }
 </style>
 
@@ -195,8 +273,9 @@ $html_front = '
     <div class="header">
         REPÚBLICA BOLIVARIANA DE VENEZUELA<br>
         MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN<br>
-        UNIDAD EDUCATIVA NACIONAL<br>
-        "ROBERTO MARTINEZ CENTENO"
+        UNIDAD EDUCATIVA "ROBERTO MARTINEZ CENTENO"<br>
+        CÓDIGO N° S1570D0104 / TELÉFONO: 212-4320310<br>
+        CARICUAO - CARACAS - DISTRITO CAPITAL
     </div>
     
     <div class="subheader">
@@ -206,20 +285,22 @@ $html_front = '
     <div class="content">
         <div class="photo-container">';
         
-if ($mostrar_boton_estudiante) {
-    $html_front .= '<div class="student-button">SIN FOTO</div>';
-} else {
-    $html_front .= '<img class="student-photo" src="' . $foto_estudiante . '" />';
-}
+// Siempre mostrar el texto "SIN FOTO" en el contenedor
+$html_front .= '<div class="no-photo">SIN FOTO</div>';
 
-$html_front .= '
-        </div>
+$html_front .= '</div>
         
         <div class="student-name">' . htmlspecialchars($estudiante['nombres'] . ' ' . $estudiante['apellidos']) . '</div>
         
         <div class="student-info">
             <span class="info-label">CÉDULA:</span> ' . htmlspecialchars($estudiante['tipo_cedula']) . '-' . htmlspecialchars($estudiante['cedula']) . '<br>
-            <span class="info-label">NIVEL-GRADO-AÑO:</span> ' . htmlspecialchars($estudiante['nombre_grado']) . '
+            <span class="info-label">GRADO:</span> ' . htmlspecialchars($estudiante['nombre_grado']) . '<br>';
+            
+if (!empty($estudiante['nombre_seccion'])) {
+    $html_front .= '<span class="info-label">SECCIÓN:</span> ' . htmlspecialchars($estudiante['nombre_seccion']) . '<br>';
+}
+
+$html_front .= '
         </div>
         
         <div class="dates">
@@ -227,14 +308,34 @@ $html_front .= '
             VENC.: ' . date('d-m-Y', strtotime($fecha_vencimiento)) . '
         </div>
     </div>
-    
-    <div class="footer">
-        DIVISION DE ADMINISTRACION ESCOLAR
-    </div>
 </div>';
 
 // Escribir el contenido HTML para la parte delantera
 $pdf->writeHTML($html_front, true, false, true, false, '');
+
+// Si hay foto disponible, agregarla directamente con TCPDF encima del texto
+if (!$mostrar_boton_estudiante) {
+    // Agregar un marco alrededor de la foto
+    $pdf->SetLineStyle(array('width' => 0.5, 'cap' => 'round', 'join' => 'round', 'dash' => 0, 'color' => array(0, 51, 102)));
+    $pdf->Rect(16.5, 26, 21, 21); // Marco exterior
+    
+    // Agregar la foto del estudiante con su propio marco
+    $pdf->Image($foto_estudiante, 17.5, 27, 19, 19, '', '', '', false, 300, '', false, false, 0, false, false, true);
+}
+
+// CORREGIDO: AGREGAR SOLO EL LOGO EN LA PARTE IZQUIERDA (si existe)
+if (!empty($logo) && file_exists($logo)) {
+    // Tamaño más pequeño para el logo
+    $logo_width = 12;
+    $logo_height = 12;
+    
+    // Posición en la esquina inferior izquierda
+    $logo_x = 2; // 2mm desde el borde izquierdo
+    $logo_y = 65; // Misma altura que el QR
+    
+    // Agregar el logo sin transparencia
+    $pdf->Image($logo, $logo_x, $logo_y, $logo_width, $logo_height, '', '', '', false, 300, '', false, false, 0, false, false, true);
+}
 
 // Agregar el código QR en la parte delantera (esquina inferior derecha)
 $pdf->write2DBarcode($qrData, 'QRCODE,L', 36.98, 65, 15, 15, $style, 'N');
@@ -242,29 +343,7 @@ $pdf->write2DBarcode($qrData, 'QRCODE,L', 36.98, 65, 15, 15, $style, 'N');
 // Agregar página para la parte TRASERA
 $pdf->AddPage();
 
-// Ruta a tu imagen de marca de agua/logo
-$marca_agua = '../../public/images/logo.png'; // Ajusta esta ruta
-
-// Verificar si el archivo existe, si no, usar una alternativa
-if (!file_exists($marca_agua)) {
-    $marca_agua = '../../public/images/default_logo.png'; // Imagen alternativa
-}
-
-// Agregar la marca de agua en el centro de la página
-// Calculamos la posición centrada (85.6x53.98mm es el tamaño de página)
-$ancho_imagen = 30; // Ancho deseado para la marca de agua en mm
-$alto_imagen = 30;  // Alto deseado para la marca de agua en mm
-
-// Calcular posición centrada
-$x_centro = (53.98 - $ancho_imagen) / 2;
-$y_centro = (85.6 - $alto_imagen) / 2;
-
-// Agregar la imagen como marca de agua (con transparencia)
-$pdf->SetAlpha(0.2); // Establecer transparencia (0 = totalmente transparente, 1 = totalmente opaco)
-$pdf->Image($marca_agua, $x_centro, $y_centro, $ancho_imagen, $alto_imagen, '', '', '', false, 300, '', false, false, 0);
-$pdf->SetAlpha(1); // Restaurar opacidad normal
-
-// Crear el contenido HTML para la parte TRASERA del carnet con mejor centrado y márgenes
+// Crear el contenido HTML para la parte TRASERA del carnet
 $html_back = '
 <style>
     .carnet-container {
@@ -293,7 +372,7 @@ $html_back = '
         position: relative;
         z-index: 1;
         height: 100%;
-        width: 80%; /* Limitar el ancho para crear márgenes laterales */
+        width: 80%;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -307,29 +386,11 @@ $html_back = '
         color: black;
         width: 100%;
     }
-    .qr-container {
-        margin: 2mm 0;
-        width: 10mm;
-        height: 10mm;
-    }
-    .qr-title {
-        font-size: 5.5px;
-        margin-bottom: 1px;
-        font-weight: bold;
-        color: white;
-        text-align: center;
-    }
     .signature {
         text-align: center;
         font-size: 4px;
         margin-top: 2mm;
         width: 100%;
-    }
-    .signature-line {
-        border-top: 1px solid #ccc;
-        width: 80%;
-        margin: 3px auto;
-        padding-top: 2px;
     }
     .contact-info {
         font-size: 4px;
@@ -349,10 +410,6 @@ $html_back = '
             Este carnet identifica al estudiante de la Unidad Educativa<br>
             Nacional "ROBERTO MARTINEZ CENTENO" y debe ser portado visiblemente dentro de la institución.<br><br>
             En caso de pérdida, el titular deberá reportarlo inmediatamente a la secretaría de la institución.
-        </div>
-        
-        <div class="qr-container">
-            <div class="qr-title"></div>
         </div>
         
         <div class="signature">
