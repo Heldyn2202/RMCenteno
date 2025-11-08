@@ -3,6 +3,10 @@
 // CONFIGURACIÓN GLOBAL - SISTEMA U.E.N ROBERTO MARTÍNEZ CENTENO
 // ============================================================================
 
+// ⚙️ Forzar modo producción temporalmente (puedes quitar esto luego)
+putenv('IS_PRODUCTION=true');
+putenv('RENDER=true');
+
 // Cargar PHPMailer automáticamente
 require_once __DIR__ . '/../vendor/autoload.php';
 
@@ -12,45 +16,35 @@ use PHPMailer\PHPMailer\Exception;
 // ============================================================================
 // DETECCIÓN DE ENTORNO (Local vs Producción)
 // ============================================================================
-
-// Forzar variable de entorno si Render no la inyecta correctamente
-if (!getenv('IS_PRODUCTION')) {
-    putenv('IS_PRODUCTION=true');
-}
-
-// Detectar si estamos en Render / Railway
-$isProduction = (
-    getenv('RENDER') === 'true' ||
-    getenv('RAILWAY_ENVIRONMENT') === 'true' ||
-    getenv('IS_PRODUCTION') === 'true'
-);
-
-// ============================================================================
-// DEBUG: Mostrar entorno detectado en los logs (solo para Render)
-// ============================================================================
-error_log("🧩 IS_PRODUCTION = " . getenv('IS_PRODUCTION'));
-error_log("🧩 RENDER = " . getenv('RENDER'));
-error_log("🧩 RAILWAY_ENVIRONMENT = " . getenv('RAILWAY_ENVIRONMENT'));
-error_log("🧩 Entorno detectado = " . ($isProduction ? "PRODUCCIÓN" : "LOCAL"));
+$isProduction = getenv('RENDER') === 'true' || getenv('RAILWAY_ENVIRONMENT') === 'true' || getenv('IS_PRODUCTION') === 'true';
 
 // ============================================================================
 // CONFIGURACIÓN DE BASE DE DATOS
 // ============================================================================
 if ($isProduction) {
-    // ⚙️ CONFIGURACIÓN PARA PRODUCCIÓN (Render + Railway)
+    // ⚙️ PRODUCCIÓN (Render + Railway)
     define('SERVIDOR', getenv('DB_HOST') ?: 'yamabiko.proxy.rlwy.net');
     define('USUARIO', getenv('DB_USER') ?: 'root');
     define('PASSWORD', getenv('DB_PASSWORD') ?: 'UjfWqSGWFeeRJtwJdpeHtJrrKPgWOWaw');
     define('BD', getenv('DB_NAME') ?: 'railway');
     define('PORT', getenv('DB_PORT') ?: 57231);
 } else {
-    // ⚙️ CONFIGURACIÓN LOCAL (XAMPP)
+    // ⚙️ LOCAL (XAMPP)
     define('SERVIDOR', 'localhost');
     define('USUARIO', 'root');
     define('PASSWORD', '');
     define('BD', 'sige');
     define('PORT', 3306);
 }
+
+// ============================================================================
+// LOGS DE DEPURACIÓN (para Render)
+// ============================================================================
+error_log("🧩 IS_PRODUCTION = " . var_export($isProduction, true));
+error_log("🧩 SERVIDOR = " . SERVIDOR);
+error_log("🧩 USUARIO = " . USUARIO);
+error_log("🧩 BD = " . BD);
+error_log("🧩 PORT = " . PORT);
 
 // ============================================================================
 // CONFIGURACIÓN DE LA APP
@@ -84,7 +78,7 @@ try {
         PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4",
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
     ]);
-    error_log("✅ Conexión a la base de datos exitosa (" . SERVIDOR . ":" . PORT . ")");
+    error_log("✅ Conexión PDO establecida correctamente.");
 } catch (PDOException $e) {
     error_log("❌ Error de conexión a la base de datos: " . $e->getMessage());
     die("Error: No se pudo conectar a la base de datos. Contacte al administrador.");
@@ -109,6 +103,7 @@ $estado_de_registro = '1';
 if (!function_exists('enviarEmail')) {
     function enviarEmail($destinatario, $asunto, $cuerpo) {
         $mail = new PHPMailer(true);
+
         try {
             $mail->isSMTP();
             $mail->Host       = SMTP_HOST;
@@ -127,7 +122,7 @@ if (!function_exists('enviarEmail')) {
             $mail->AltBody = strip_tags($cuerpo);
 
             $mail->send();
-            error_log("✅ Email enviado exitosamente a: $destinatario");
+            error_log("✅ Email enviado a: $destinatario");
             return true;
         } catch (Exception $e) {
             error_log("❌ Error al enviar email: {$mail->ErrorInfo}");
