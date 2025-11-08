@@ -1,11 +1,7 @@
- # ============================================================================
-# 🧱 Imagen base de PHP con Apache
-# ============================================================================
-FROM php:8.2-apache  
+# Imagen base completa con PHP y Apache
+FROM php:8.2-apache
 
-# ============================================================================
-# 🛠 Instalar extensiones necesarias (MariaDB/MySQL, PDO, ZIP, etc.)
-# ============================================================================
+# Instala dependencias necesarias
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
@@ -17,38 +13,17 @@ RUN apt-get update && apt-get install -y \
     git \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install pdo pdo_mysql mysqli gd mbstring xml zip \
-    && a2enmod rewrite
+    && a2enmod rewrite \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# ============================================================================
-# 🧩 Copiar todos los archivos del proyecto al contenedor
-# ============================================================================
+# Copia los archivos del proyecto al contenedor
 COPY . /var/www/html/
 
-# ============================================================================
-# ⚙️ Configurar el entorno de Apache
-# ============================================================================
-WORKDIR /var/www/html/
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html
+# Da permisos adecuados
+RUN chown -R www-data:www-data /var/www/html
 
-# ============================================================================
-# 🧰 Instalar Composer (para PHPMailer y dependencias)
-# ============================================================================
-COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
-RUN composer install --no-dev --optimize-autoloader || true
-
-# ============================================================================
-# 🌍 Variables de entorno para Render o Docker Compose
-# ============================================================================
-ENV RENDER=true
-ENV APACHE_DOCUMENT_ROOT=/var/www/html
-
-# ============================================================================
-# 🔐 Habilitar HTTPS opcional (si Render lo usa)
-# ============================================================================
+# Expone el puerto 80
 EXPOSE 80
 
-# ============================================================================
-# 🏁 Comando de inicio
-# ============================================================================
+# Inicia Apache
 CMD ["apache2-foreground"]
