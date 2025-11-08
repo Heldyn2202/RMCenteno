@@ -815,99 +815,67 @@
 <body>
     <body>
 <?php
-// ============================================================================
 // CONEXIÓN A BASE DE DATOS Y CONSULTAS
-// ============================================================================
+$servername = getenv('DB_HOST') ?: "localhost";
+$username   = getenv('DB_USER') ?: "root";
+$password   = getenv('DB_PASSWORD') ?: "";
+$dbname     = getenv('DB_NAME') ?: "sige";
+$port       = getenv('DB_PORT') ?: 3306;
 
-// 🧠 Cargar configuración global (usa la conexión correcta dependiendo del entorno)
-require_once __DIR__ . '/admin/app/config.php';
-
-// Crear conexión mysqli usando las constantes del config
-$con = new mysqli(SERVIDOR, USUARIO, PASSWORD, BD, PORT);
+// Crear conexión
+$con = new mysqli($servername, $username, $password, $dbname, $port);
 
 // Verificar conexión
 if ($con->connect_error) {
-    die("❌ Error de conexión: " . $con->connect_error);
+    die("Conexión fallida: " . $con->connect_error);
 }
 
-// ============================================================================
-// CARRUSEL DE IMÁGENES ACTIVAS
-// ============================================================================
-$currentDate = date('Y-m-d');
-$carruselQuery = "SELECT * FROM carrusel 
-                 WHERE activo = 1 
-                 AND fecha_inicio <= '$currentDate' 
-                 AND fecha_fin >= '$currentDate' 
-                 ORDER BY fecha_creacion DESC";
-$carruselResult = mysqli_query($con, $carruselQuery);
+// 🧹 SE ELIMINA CARRUSEL — Código temporalmente desactivado
 $carruselItems = [];
 $carruselCount = 0;
 
-if ($carruselResult) {
-    $carruselItems = mysqli_fetch_all($carruselResult, MYSQLI_ASSOC);
-    $carruselCount = count($carruselItems);
-}
-
-// ============================================================================
-// PAGINACIÓN Y POSTS ACTIVOS
-// ============================================================================
-if (isset($_GET['pageno'])) {
-    $pageno = $_GET['pageno'];
-} else {
-    $pageno = 1;
-}
+// Configuración de paginación para posts
+$pageno = isset($_GET['pageno']) ? (int)$_GET['pageno'] : 1;
 $no_of_records_per_page = 6;
 $offset = ($pageno - 1) * $no_of_records_per_page;
 
-$total_pages_sql = "SELECT COUNT(*) FROM tblposts WHERE Is_Active=1";
+// Total de publicaciones activas
+$total_pages_sql = "SELECT COUNT(*) FROM tblposts WHERE Is_Active = 1";
 $result = mysqli_query($con, $total_pages_sql);
-$total_rows = mysqli_fetch_array($result)[0];
+$total_rows = $result ? mysqli_fetch_array($result)[0] : 0;
 $total_pages = ceil($total_rows / $no_of_records_per_page);
 
 // Obtener posts para la página actual
 $query = mysqli_query($con, "
-    SELECT 
-        tblposts.id as pid,
-        tblposts.PostTitle as posttitle,
-        tblposts.PostImage,
-        tblcategory.CategoryName as category,
-        tblcategory.id as cid,
-        tblsubcategory.Subcategory as subcategory,
-        tblposts.PostDetails as postdetails,
-        tblposts.PostingDate as postingdate,
-        tblposts.PostUrl as url
-    FROM tblposts 
-    LEFT JOIN tblcategory ON tblcategory.id = tblposts.CategoryId 
-    LEFT JOIN tblsubcategory ON tblsubcategory.SubCategoryId = tblposts.SubCategoryId 
-    WHERE tblposts.Is_Active = 1 
-    ORDER BY tblposts.id DESC 
+    SELECT tblposts.id as pid,
+           tblposts.PostTitle as posttitle,
+           tblposts.PostImage,
+           tblcategory.CategoryName as category,
+           tblcategory.id as cid,
+           tblsubcategory.Subcategory as subcategory,
+           tblposts.PostDetails as postdetails,
+           tblposts.PostingDate as postingdate,
+           tblposts.PostUrl as url
+    FROM tblposts
+    LEFT JOIN tblcategory ON tblcategory.id = tblposts.CategoryId
+    LEFT JOIN tblsubcategory ON tblsubcategory.SubCategoryId = tblposts.SubCategoryId
+    WHERE tblposts.Is_Active = 1
+    ORDER BY tblposts.id DESC
     LIMIT $offset, $no_of_records_per_page
 ");
-$posts = [];
-if ($query) {
-    $posts = mysqli_fetch_all($query, MYSQLI_ASSOC);
-}
+$posts = $query ? mysqli_fetch_all($query, MYSQLI_ASSOC) : [];
 
-// ============================================================================
-// CATEGORÍAS ACTIVAS
-// ============================================================================
+// Obtener categorías
 $categoriesQuery = "SELECT * FROM tblcategory WHERE Is_Active = 1 ORDER BY CategoryName";
 $categoriesResult = mysqli_query($con, $categoriesQuery);
-$categories = [];
-if ($categoriesResult) {
-    $categories = mysqli_fetch_all($categoriesResult, MYSQLI_ASSOC);
-}
+$categories = $categoriesResult ? mysqli_fetch_all($categoriesResult, MYSQLI_ASSOC) : [];
 
-// ============================================================================
-// REDES SOCIALES ACTIVAS
-// ============================================================================
+// Obtener redes sociales
 $socialQuery = "SELECT * FROM social_media WHERE status = 1 ORDER BY name";
 $socialResult = mysqli_query($con, $socialQuery);
-$social_media = [];
-if ($socialResult) {
-    $social_media = mysqli_fetch_all($socialResult, MYSQLI_ASSOC);
-}
+$social_media = $socialResult ? mysqli_fetch_all($socialResult, MYSQLI_ASSOC) : [];
 ?>
+
 
     
     <!-- Header -->
