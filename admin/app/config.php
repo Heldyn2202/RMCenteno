@@ -18,12 +18,14 @@ $isProduction = getenv('RENDER') || getenv('RAILWAY_ENVIRONMENT') ? true : false
 // CONFIGURACIÓN DE BASE DE DATOS
 // ============================================================================
 if ($isProduction) {
-    // ⚙️ CONFIGURACIÓN PARA PRODUCCIÓN (Railway)
-    define('SERVIDOR', 'mysql.railway.internal');
+    // ⚙️ CONFIGURACIÓN PARA PRODUCCIÓN (Render + Railway)
+    define('SERVIDOR', 'yamabiko.proxy.rlwy.net');  // 👈 usa el host público
     define('USUARIO', 'root');
     define('PASSWORD', 'UjfWqSGWFeeRJtwJdpeHtJrrKPgWOWaw');
     define('BD', 'railway');
-    define('PORT', 3306);
+    define('PORT', 57231);  // 👈 usa el puerto externo mostrado en Railway
+
+
 } else {
     // ⚙️ CONFIGURACIÓN LOCAL (XAMPP)
     define('SERVIDOR', 'localhost');
