@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
-    libzip-dev \        # 👈 ESTA ES LA CLAVE
+    libzip-dev \
     zip \
     unzip \
     libonig-dev \
@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo pdo_mysql mysqli gd mbstring xml zip \
     && a2enmod rewrite \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 
 # Copiar el proyecto
 COPY . /var/www/html/
