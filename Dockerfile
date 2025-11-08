@@ -1,11 +1,12 @@
-# Imagen base completa con PHP y Apache
+# Imagen base con PHP y Apache
 FROM php:8.2-apache
 
-# Instala dependencias necesarias
+# Instalar dependencias del sistema necesarias
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
+    libzip-dev \        # 👈 ESTA ES LA CLAVE
     zip \
     unzip \
     libonig-dev \
@@ -16,14 +17,14 @@ RUN apt-get update && apt-get install -y \
     && a2enmod rewrite \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copia los archivos del proyecto al contenedor
+# Copiar el proyecto
 COPY . /var/www/html/
 
-# Da permisos adecuados
+# Permisos adecuados
 RUN chown -R www-data:www-data /var/www/html
 
-# Expone el puerto 80
+# Exponer el puerto 80
 EXPOSE 80
 
-# Inicia Apache
+# Comando de inicio
 CMD ["apache2-foreground"]
