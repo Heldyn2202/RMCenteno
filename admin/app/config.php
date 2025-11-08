@@ -12,19 +12,32 @@ use PHPMailer\PHPMailer\Exception;
 // ============================================================================
 // DETECCIÓN DE ENTORNO (Local vs Producción)
 // ============================================================================
-$isProduction = getenv('RENDER') || getenv('RAILWAY_ENVIRONMENT') ? true : false;
+
+// ✅ Nueva detección más confiable
+$isProduction = false;
+
+// Render / Railway / Variable personalizada
+if (
+    getenv('RENDER') === 'true' ||
+    getenv('RAILWAY_ENVIRONMENT') === 'true' ||
+    getenv('IS_PRODUCTION') === 'true'
+) {
+    $isProduction = true;
+}
+
+// Puedes forzarlo manualmente si necesitas probar:
+// $isProduction = true;
 
 // ============================================================================
 // CONFIGURACIÓN DE BASE DE DATOS
 // ============================================================================
 if ($isProduction) {
     // ⚙️ CONFIGURACIÓN PARA PRODUCCIÓN (Render + Railway)
-    define('SERVIDOR', 'yamabiko.proxy.rlwy.net');  // 👈 usa el host público
-    define('USUARIO', 'root');
-    define('PASSWORD', 'UjfWqSGWFeeRJtwJdpeHtJrrKPgWOWaw');
-    define('BD', 'railway');
-    define('PORT', 57231);  // 👈 usa el puerto externo mostrado en Railway
-
+    define('SERVIDOR', getenv('DB_HOST') ?: 'yamabiko.proxy.rlwy.net');
+    define('USUARIO', getenv('DB_USER') ?: 'root');
+    define('PASSWORD', getenv('DB_PASS') ?: 'UjfWqSGWFeeRJtwJdpeHtJrrKPgWOWaw');
+    define('BD', getenv('DB_NAME') ?: 'railway');
+    define('PORT', getenv('DB_PORT') ?: 57231);
 
 } else {
     // ⚙️ CONFIGURACIÓN LOCAL (XAMPP)
@@ -43,7 +56,6 @@ if (!defined('APP_NAME')) {
 }
 
 if (!defined('APP_URL')) {
-    // Detectar dominio automáticamente
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     define('APP_URL', $protocol . '://' . $host . '/heldyn/centeno/admin');
@@ -74,7 +86,13 @@ try {
     ]);
 } catch (PDOException $e) {
     error_log("❌ Error de conexión a la base de datos: " . $e->getMessage());
-    die("Error: No se pudo conectar a la base de datos. Contacte al administrador.");
+
+    // 🔍 Mostrar solo en desarrollo
+    if (!$isProduction) {
+        die("Error: No se pudo conectar a la base de datos.<br>Mensaje: " . $e->getMessage());
+    } else {
+        die("Error: No se pudo conectar a la base de datos. Contacte al administrador.");
+    }
 }
 
 // ============================================================================
@@ -98,7 +116,6 @@ if (!function_exists('enviarEmail')) {
         $mail = new PHPMailer(true);
 
         try {
-            // Configuración del servidor SMTP
             $mail->isSMTP();
             $mail->Host       = SMTP_HOST;
             $mail->SMTPAuth   = true;
@@ -107,24 +124,20 @@ if (!function_exists('enviarEmail')) {
             $mail->SMTPSecure = SMTP_SECURE;
             $mail->Port       = SMTP_PORT;
 
-            // Remitente y destinatario
             $mail->setFrom(SMTP_USER, APP_NAME);
             $mail->addAddress($destinatario);
 
-            // Contenido del correo
             $mail->isHTML(true);
             $mail->Subject = $asunto;
             $mail->Body    = $cuerpo;
             $mail->AltBody = strip_tags($cuerpo);
 
-            // Enviar
             $mail->send();
             error_log("✅ Email enviado exitosamente a: $destinatario");
             return true;
         } catch (Exception $e) {
             error_log("❌ Error al enviar email: {$mail->ErrorInfo}");
 
-            // Fallback al mail() nativo
             $headers = "From: " . APP_NAME . " <no-reply@" . $_SERVER['HTTP_HOST'] . ">\r\n";
             $headers .= "Reply-To: no-reply@" . $_SERVER['HTTP_HOST'] . "\r\n";
             $headers .= "MIME-Version: 1.0\r\n";
