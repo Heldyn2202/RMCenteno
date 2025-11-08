@@ -13,20 +13,25 @@ use PHPMailer\PHPMailer\Exception;
 // DETECCIÓN DE ENTORNO (Local vs Producción)
 // ============================================================================
 
-// ✅ Nueva detección más confiable
-$isProduction = false;
+// Forzar variable de entorno si Render no la inyecta correctamente
+if (!getenv('IS_PRODUCTION')) {
+    putenv('IS_PRODUCTION=true');
+}
 
-// Render / Railway / Variable personalizada
-if (
+// Detectar si estamos en Render / Railway
+$isProduction = (
     getenv('RENDER') === 'true' ||
     getenv('RAILWAY_ENVIRONMENT') === 'true' ||
     getenv('IS_PRODUCTION') === 'true'
-) {
-    $isProduction = true;
-}
+);
 
-// Puedes forzarlo manualmente si necesitas probar:
-// $isProduction = true;
+// ============================================================================
+// DEBUG: Mostrar entorno detectado en los logs (solo para Render)
+// ============================================================================
+error_log("🧩 IS_PRODUCTION = " . getenv('IS_PRODUCTION'));
+error_log("🧩 RENDER = " . getenv('RENDER'));
+error_log("🧩 RAILWAY_ENVIRONMENT = " . getenv('RAILWAY_ENVIRONMENT'));
+error_log("🧩 Entorno detectado = " . ($isProduction ? "PRODUCCIÓN" : "LOCAL"));
 
 // ============================================================================
 // CONFIGURACIÓN DE BASE DE DATOS
@@ -35,10 +40,9 @@ if ($isProduction) {
     // ⚙️ CONFIGURACIÓN PARA PRODUCCIÓN (Render + Railway)
     define('SERVIDOR', getenv('DB_HOST') ?: 'yamabiko.proxy.rlwy.net');
     define('USUARIO', getenv('DB_USER') ?: 'root');
-    define('PASSWORD', getenv('DB_PASS') ?: 'UjfWqSGWFeeRJtwJdpeHtJrrKPgWOWaw');
+    define('PASSWORD', getenv('DB_PASSWORD') ?: 'UjfWqSGWFeeRJtwJdpeHtJrrKPgWOWaw');
     define('BD', getenv('DB_NAME') ?: 'railway');
     define('PORT', getenv('DB_PORT') ?: 57231);
-
 } else {
     // ⚙️ CONFIGURACIÓN LOCAL (XAMPP)
     define('SERVIDOR', 'localhost');
@@ -51,9 +55,7 @@ if ($isProduction) {
 // ============================================================================
 // CONFIGURACIÓN DE LA APP
 // ============================================================================
-if (!defined('APP_NAME')) {
-    define('APP_NAME', 'U.E.N ROBERTO MARTÍNEZ CENTENO');
-}
+if (!defined('APP_NAME')) define('APP_NAME', 'U.E.N ROBERTO MARTÍNEZ CENTENO');
 
 if (!defined('APP_URL')) {
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
@@ -61,9 +63,7 @@ if (!defined('APP_URL')) {
     define('APP_URL', $protocol . '://' . $host . '/heldyn/centeno/admin');
 }
 
-if (!defined('KEY_API_MAPS')) {
-    define('KEY_API_MAPS', '');
-}
+if (!defined('KEY_API_MAPS')) define('KEY_API_MAPS', '');
 
 // ============================================================================
 // CONFIGURACIÓN DE CORREO (PHPMailer)
@@ -84,15 +84,10 @@ try {
         PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4",
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
     ]);
+    error_log("✅ Conexión a la base de datos exitosa (" . SERVIDOR . ":" . PORT . ")");
 } catch (PDOException $e) {
     error_log("❌ Error de conexión a la base de datos: " . $e->getMessage());
-
-    // 🔍 Mostrar solo en desarrollo
-    if (!$isProduction) {
-        die("Error: No se pudo conectar a la base de datos.<br>Mensaje: " . $e->getMessage());
-    } else {
-        die("Error: No se pudo conectar a la base de datos. Contacte al administrador.");
-    }
+    die("Error: No se pudo conectar a la base de datos. Contacte al administrador.");
 }
 
 // ============================================================================
@@ -114,7 +109,6 @@ $estado_de_registro = '1';
 if (!function_exists('enviarEmail')) {
     function enviarEmail($destinatario, $asunto, $cuerpo) {
         $mail = new PHPMailer(true);
-
         try {
             $mail->isSMTP();
             $mail->Host       = SMTP_HOST;
