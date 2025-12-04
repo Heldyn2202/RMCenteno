@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $observaciones = $_POST['observaciones'] ?? [];
 
     if (!$id_seccion || !$id_materia || !$id_lapso) {
-        $_SESSION['error'] = "❌ Datos incompletos para procesar las notas.";
+        $_SESSION['error_message'] = "❌ Datos incompletos para procesar las notas.";
         header("Location: carga_notas_seccion.php");
         exit();
     }
@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         $stmt_hist = $pdo->prepare($sql_hist);
 
-        // Preparar consultas de uso frecuente (opcional: mejora rendimiento)
+        // Preparar consultas de uso frecuente
         $sql_check = "SELECT id_nota, calificacion, observaciones 
                       FROM notas_estudiantes 
                       WHERE id_estudiante = :id_estudiante 
@@ -91,105 +91,92 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                        )";
         $stmt_insert = $pdo->prepare($sql_insert);
 
+        // Consulta para detectar si el estudiante ya está en proceso de revisión
+        $sql_tiene_revision = "
+            SELECT COUNT(*) FROM recuperaciones
+            WHERE id_estudiante = :id_estudiante
+              AND id_materia = :id_materia
+              AND id_seccion = :id_seccion
+              AND tipo = 'revision'
+        ";
+        $stmt_tiene_revision = $pdo->prepare($sql_tiene_revision);
+
+        // Para obtener nombre si queremos informar quien se saltó
+        $stmt_nombre_est = $pdo->prepare("SELECT CONCAT(apellidos, ' ', nombres) AS nombre FROM estudiantes WHERE id_estudiante = :id_estudiante LIMIT 1");
+
         $procesadas = 0;
         $actualizadas = 0;
         $nuevas = 0;
         $sin_cambios = 0;
+        $omitidas_revision = 0;
         $errores_validacion = [];
+        $omitidos_lista = []; // guardará nombres/id de estudiantes omitidos por estar en revisión
 
         foreach ($notas as $id_estudiante => $calificacion_raw) {
-            // Solo procesar si hay nota ingresada
-            if ($calificacion_raw !== '') {
-                $calificacion = floatval($calificacion_raw);
-                $observacion_nueva = trim($observaciones[$id_estudiante] ?? '');
+            // Solo procesar si hay nota ingresada (no vacío)
+            if ($calificacion_raw === '' || $calificacion_raw === null) {
+                continue;
+            }
 
-                // Validar rango
-                if ($calificacion < 0 || $calificacion > 20) {
-                    $errores_validacion[] = "Nota fuera de rango (0-20) para estudiante ID: $id_estudiante - Valor: $calificacion";
-                    continue;
-                }
+            // Comprobar si estudiante está en revisión (skip si es así)
+            $stmt_tiene_revision->execute([
+                ':id_estudiante' => $id_estudiante,
+                ':id_materia' => $id_materia,
+                ':id_seccion' => $id_seccion
+            ]);
+            $cnt_rev = intval($stmt_tiene_revision->fetchColumn() ?? 0);
+            if ($cnt_rev > 0) {
+                $omitidas_revision++;
+                // obtener nombre para reporte (intento, si falla, guardar id)
+                $stmt_nombre_est->execute([':id_estudiante' => $id_estudiante]);
+                $row_nom = $stmt_nombre_est->fetch(PDO::FETCH_ASSOC);
+                $omitidos_lista[] = $row_nom['nombre'] ?? "ID:$id_estudiante";
+                continue;
+            }
 
-                // Verificar si ya existe la nota
-                $stmt_check->execute([
-                    ':id_estudiante' => $id_estudiante,
-                    ':id_materia' => $id_materia,
-                    ':id_lapso' => $id_lapso
-                ]);
-                $nota_existente = $stmt_check->fetch(PDO::FETCH_ASSOC);
+            // Convertir a float, validar y redondear al entero más cercano (PHP_ROUND_HALF_UP)
+            $calificacion_val = floatval($calificacion_raw);
 
-                if ($nota_existente) {
-                    // NOTA EXISTENTE - Verificar si hay cambios reales
-                    $observacion_anterior = $nota_existente['observaciones'] ?? '';
-                    $nota_anterior = floatval($nota_existente['calificacion']);
+            if ($calificacion_val < 0 || $calificacion_val > 20) {
+                $errores_validacion[] = "Nota fuera de rango (0-20) para estudiante ID: $id_estudiante - Valor: $calificacion_val";
+                continue;
+            }
 
-                    $hay_cambio_nota = (abs($nota_anterior - $calificacion) > 0.001);
-                    $hay_cambio_obs = ($observacion_anterior !== $observacion_nueva);
+            // Redondear al entero más cercano (18.5 => 19, 18.4 => 18)
+            $calificacion = (int) round($calificacion_val, 0, PHP_ROUND_HALF_UP);
 
-                    if ($hay_cambio_nota || $hay_cambio_obs) {
-                        // 1) Insertar en historial (desde PHP) antes o después del UPDATE
-                        if ($has_id_nota) {
-                            $params_hist = [
-                                ':id_nota' => $nota_existente['id_nota'],
-                                ':id_estudiante' => $id_estudiante,
-                                ':id_materia' => $id_materia,
-                                ':id_lapso' => $id_lapso,
-                                ':calificacion_anterior' => $nota_anterior,
-                                ':calificacion_nueva' => $calificacion,
-                                ':obs_anterior' => $observacion_anterior,
-                                ':obs_nueva' => $observacion_nueva,
-                                ':tipo_cambio' => 'ACTUALIZACION',
-                                ':usuario_cambio' => $usuario_cambio
-                            ];
-                        } else {
-                            $params_hist = [
-                                ':id_estudiante' => $id_estudiante,
-                                ':id_materia' => $id_materia,
-                                ':id_lapso' => $id_lapso,
-                                ':calificacion_anterior' => $nota_anterior,
-                                ':calificacion_nueva' => $calificacion,
-                                ':obs_anterior' => $observacion_anterior,
-                                ':obs_nueva' => $observacion_nueva,
-                                ':tipo_cambio' => 'ACTUALIZACION',
-                                ':usuario_cambio' => $usuario_cambio
-                            ];
-                        }
-                        $stmt_hist->execute($params_hist);
+            $observacion_nueva = trim($observaciones[$id_estudiante] ?? '');
 
-                        // 2) Actualizar nota principal
-                        $stmt_update->execute([
-                            ':calificacion' => $calificacion,
-                            ':observaciones' => $observacion_nueva,
-                            ':id_nota' => $nota_existente['id_nota']
-                        ]);
+            // Verificar si ya existe la nota
+            $stmt_check->execute([
+                ':id_estudiante' => $id_estudiante,
+                ':id_materia' => $id_materia,
+                ':id_lapso' => $id_lapso
+            ]);
+            $nota_existente = $stmt_check->fetch(PDO::FETCH_ASSOC);
 
-                        $actualizadas++;
-                        $procesadas++;
-                    } else {
-                        $sin_cambios++;
-                    }
-                } else {
-                    // NUEVA NOTA: insertar nota y luego historial de CREACION
-                    $stmt_insert->execute([
-                        ':id_estudiante' => $id_estudiante,
-                        ':id_materia' => $id_materia,
-                        ':id_lapso' => $id_lapso,
-                        ':calificacion' => $calificacion,
-                        ':observaciones' => $observacion_nueva
-                    ]);
+            if ($nota_existente) {
+                // NOTA EXISTENTE - Verificar si hay cambios reales (comparando valores redondeados)
+                $observacion_anterior = $nota_existente['observaciones'] ?? '';
+                $nota_anterior_raw = floatval($nota_existente['calificacion']);
+                $nota_anterior = (int) round($nota_anterior_raw, 0, PHP_ROUND_HALF_UP);
 
-                    $id_nota_nueva = $pdo->lastInsertId();
+                $hay_cambio_nota = ($nota_anterior !== $calificacion);
+                $hay_cambio_obs = ($observacion_anterior !== $observacion_nueva);
 
+                if ($hay_cambio_nota || $hay_cambio_obs) {
+                    // Insertar en historial
                     if ($has_id_nota) {
                         $params_hist = [
-                            ':id_nota' => $id_nota_nueva,
+                            ':id_nota' => $nota_existente['id_nota'],
                             ':id_estudiante' => $id_estudiante,
                             ':id_materia' => $id_materia,
                             ':id_lapso' => $id_lapso,
-                            ':calificacion_anterior' => null,
+                            ':calificacion_anterior' => $nota_anterior,
                             ':calificacion_nueva' => $calificacion,
-                            ':obs_anterior' => null,
+                            ':obs_anterior' => $observacion_anterior,
                             ':obs_nueva' => $observacion_nueva,
-                            ':tipo_cambio' => 'CREACION',
+                            ':tipo_cambio' => 'ACTUALIZACION',
                             ':usuario_cambio' => $usuario_cambio
                         ];
                     } else {
@@ -197,25 +184,76 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             ':id_estudiante' => $id_estudiante,
                             ':id_materia' => $id_materia,
                             ':id_lapso' => $id_lapso,
-                            ':calificacion_anterior' => null,
+                            ':calificacion_anterior' => $nota_anterior,
                             ':calificacion_nueva' => $calificacion,
-                            ':obs_anterior' => null,
+                            ':obs_anterior' => $observacion_anterior,
                             ':obs_nueva' => $observacion_nueva,
-                            ':tipo_cambio' => 'CREACION',
+                            ':tipo_cambio' => 'ACTUALIZACION',
                             ':usuario_cambio' => $usuario_cambio
                         ];
                     }
                     $stmt_hist->execute($params_hist);
 
-                    $nuevas++;
+                    // Actualizar nota principal (guardar entero)
+                    $stmt_update->execute([
+                        ':calificacion' => $calificacion,
+                        ':observaciones' => $observacion_nueva,
+                        ':id_nota' => $nota_existente['id_nota']
+                    ]);
+
+                    $actualizadas++;
                     $procesadas++;
+                } else {
+                    $sin_cambios++;
                 }
+            } else {
+                // NUEVA NOTA: insertar nota (guardar entero) y luego historial de CREACION
+                $stmt_insert->execute([
+                    ':id_estudiante' => $id_estudiante,
+                    ':id_materia' => $id_materia,
+                    ':id_lapso' => $id_lapso,
+                    ':calificacion' => $calificacion,
+                    ':observaciones' => $observacion_nueva
+                ]);
+
+                $id_nota_nueva = $pdo->lastInsertId();
+
+                if ($has_id_nota) {
+                    $params_hist = [
+                        ':id_nota' => $id_nota_nueva,
+                        ':id_estudiante' => $id_estudiante,
+                        ':id_materia' => $id_materia,
+                        ':id_lapso' => $id_lapso,
+                        ':calificacion_anterior' => null,
+                        ':calificacion_nueva' => $calificacion,
+                        ':obs_anterior' => null,
+                        ':obs_nueva' => $observacion_nueva,
+                        ':tipo_cambio' => 'CREACION',
+                        ':usuario_cambio' => $usuario_cambio
+                    ];
+                } else {
+                    $params_hist = [
+                        ':id_estudiante' => $id_estudiante,
+                        ':id_materia' => $id_materia,
+                        ':id_lapso' => $id_lapso,
+                        ':calificacion_anterior' => null,
+                        ':calificacion_nueva' => $calificacion,
+                        ':obs_anterior' => null,
+                        ':obs_nueva' => $observacion_nueva,
+                        ':tipo_cambio' => 'CREACION',
+                        ':usuario_cambio' => $usuario_cambio
+                    ];
+                }
+                $stmt_hist->execute($params_hist);
+
+                $nuevas++;
+                $procesadas++;
             }
         }
 
         $pdo->commit();
 
-        // Mensaje de éxito
+        // Mensaje de éxito (con HTML permitida; carga_notas_seccion.php debe mostrarlo con safe rendering)
         if ($procesadas > 0) {
             $mensaje = "✅ <strong>Notas guardadas exitosamente!</strong><br><br>";
             $mensaje .= "📊 <strong>Resumen de la operación:</strong><br>";
@@ -228,8 +266,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $mensaje .= "Todas las notas ya estaban actualizadas o no se ingresaron nuevas notas.";
         }
 
+        if ($omitidas_revision > 0) {
+            $mensaje .= "<br>⚠️ Se omitieron <strong>{$omitidas_revision}</strong> estudiantes porque están en proceso de revisión:<br>";
+            // listar hasta 20 nombres para no desbordar
+            $lista_muestra = array_slice($omitidos_lista, 0, 20);
+            $mensaje .= "• " . implode(' · ', array_map(function($n){ return htmlspecialchars($n); }, $lista_muestra));
+            if (count($omitidos_lista) > count($lista_muestra)) {
+                $mensaje .= " · ...";
+            }
+            $mensaje .= "<br>";
+        }
+
         if (count($errores_validacion) > 0) {
-            $mensaje .= "<br>⚠️ Se omitieron " . count($errores_validacion) . " notas por errores de validación.";
+            $mensaje .= "<br>⚠️ Se omitieron " . count($errores_validacion) . " notas por errores de validación.<br>";
+            // opcional: agregar detalles de errores (máx 10)
+            $mensaje .= "<small>";
+            $mensaje .= implode('<br>', array_slice($errores_validacion, 0, 10));
+            if (count($errores_validacion) > 10) {
+                $mensaje .= "<br>... (y " . (count($errores_validacion)-10) . " más)";
+            }
+            $mensaje .= "</small>";
         }
 
         $_SESSION['success_message'] = $mensaje;
@@ -237,7 +293,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } catch (Exception $e) {
         $pdo->rollBack();
         error_log("Error al guardar notas: " . $e->getMessage());
-        $_SESSION['error_message'] = "❌ Error al guardar las notas.<br>Detalle: " . $e->getMessage();
+        $_SESSION['error_message'] = "❌ Error al guardar las notas.<br>Detalle: " . htmlspecialchars($e->getMessage());
     }
 } else {
     $_SESSION['error_message'] = "❌ Método de solicitud no válido.";

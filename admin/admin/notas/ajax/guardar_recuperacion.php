@@ -21,6 +21,19 @@ try {
         throw new Exception('Faltan datos obligatorios.');
     }
 
+    // Verificar que haya al menos una nota para procesar
+    $notas_recibidas = array_filter($notas, function($nota) {
+        return $nota !== '' && $nota !== null && trim($nota) !== '';
+    });
+
+    if (empty($notas_recibidas)) {
+        echo json_encode([
+            'status' => 'warning',
+            'message' => 'No se recibieron notas para guardar. Por favor, ingrese al menos una nota.'
+        ]);
+        exit;
+    }
+
     // Obtener gestion activa para mensajes (si aplica)
     $stmt_g = $pdo->prepare("SELECT CONCAT('Periodo ', DATE_FORMAT(desde, '%Y'), ' - ', DATE_FORMAT(hasta, '%Y')) AS nombre_gestion FROM gestiones WHERE estado = 1 LIMIT 1");
     $stmt_g->execute();
@@ -176,7 +189,12 @@ try {
 
     $pdo->commit();
 
-    // Preparar mensajes contados y listados con nombres
+    // Función para formatear singular/plural
+    function formatCantidad($cantidad, $singular, $plural) {
+        return $cantidad === 1 ? $singular : $plural;
+    }
+
+    // Obtener nombres de estudiantes
     $get_names = function($ids) use ($stmt_nombre) {
         $names = [];
         foreach ($ids as $id) {
@@ -192,44 +210,51 @@ try {
     $movidos_nombres = $get_names($movidos_a_pendiente);
     $aplazados_nombres = $get_names($aplazados);
 
-    // Construir mensaje principal
+    // Preparar detalles individuales para aplazados
+    $detalles_aplazados = [];
+    if (!empty($aplazados_nombres)) {
+        foreach ($aplazados_nombres as $nombre) {
+            $detalles_aplazados[] = "Estudiante $nombre: Reprobó los 4 intentos. Repite el año escolar ($gestion_activa_nombre).";
+        }
+    }
+
+    // Construir resumen
     $summary = [
+        'total_registros' => $procesados,
         'aprobados' => count($aprobados),
         'reprobados' => count($reprobados),
         'movido_a_pendiente_count' => count($movidos_a_pendiente),
         'aplazados_count' => count($aplazados)
     ];
 
+    // Mensaje principal con singular/plural
+    $mensajePrincipal = formatCantidad($procesados, 
+        "Se guardó $procesados registro correctamente.", 
+        "Se guardaron $procesados registros correctamente."
+    );
+
+    // Construir partes del mensaje
     $message_parts = [];
-    $message_parts[] = "✅ Se guardaron $procesados registros correctamente.";
-    $message_parts[] = (count($aprobados) > 0) ? (count($aprobados) . " aprobados") : "";
-    $message_parts[] = (count($reprobados) > 0) ? (count($reprobados) . " reprobados") : "";
-    if (count($movidos_a_pendiente) > 0) $message_parts[] = (count($movidos_a_pendiente) . " movidos a Materias Pendientes");
-    if (count($aplazados) > 0) $message_parts[] = (count($aplazados) . " aplazados (repite año)");
-
-    $message_combined = implode(' · ', array_filter($message_parts));
-
-    // Mensajes adicionales por categoría
-    $extra_msgs = [];
-    if (!empty($movidos_nombres)) {
-        foreach ($movidos_nombres as $nm) {
-            $extra_msgs[] = "Estudiante {$nm}: Reprobó revisión y fue movido a Materia Pendiente.";
-        }
+    if (count($aprobados) > 0) {
+        $message_parts[] = count($aprobados) . " " . formatCantidad(count($aprobados), "aprobado", "aprobados");
     }
-    if (!empty($aplazados_nombres)) {
-        foreach ($aplazados_nombres as $nm) {
-            $extra_msgs[] = "Estudiante {$nm}: Reprobó los 4 intentos. Repite el año escolar ({$gestion_activa_nombre}).";
-        }
+    if (count($reprobados) > 0) {
+        $message_parts[] = count($reprobados) . " " . formatCantidad(count($reprobados), "reprobado", "reprobados");
     }
+    if (count($movidos_a_pendiente) > 0) {
+        $message_parts[] = count($movidos_a_pendiente) . " " . formatCantidad(count($movidos_a_pendiente), "movido a Materias Pendientes", "movidos a Materias Pendientes");
+    }
+    if (count($aplazados) > 0) {
+        $message_parts[] = count($aplazados) . " " . formatCantidad(count($aplazados), "aplazado", "aplazados");
+    }
+
+    $message_combined = $mensajePrincipal . ($message_parts ? " · " . implode(' · ', $message_parts) : "");
 
     echo json_encode([
         'status' => 'success',
-        'message' => $message_combined . (count($extra_msgs) ? '<br><br>' . implode('<br>', $extra_msgs) : ''),
+        'message' => $message_combined,
         'summary' => $summary,
-        'movidos' => $movidos_nombres,
-        'aplazados' => $aplazados_nombres,
-        'aprobados' => $aprobados_nombres,
-        'reprobados' => $reprobados_nombres,
+        'detalles_aplazados' => $detalles_aplazados,
         'gestion_activa' => $gestion_activa_nombre,
         'reload' => true
     ]);

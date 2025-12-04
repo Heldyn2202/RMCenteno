@@ -245,9 +245,19 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
                                             <td>
                                                 <?php 
                                                     if ($tipo == 'revision' && $e['intento_actual'] == 0) {
-                                                        echo number_format(($e['suma_lapsos'] ?? 0) / 3, 2);
+                                                        // Calcular promedio y redondear
+                                                        $promedio = ($e['suma_lapsos'] ?? 0) / 3;
+                                                        $redondeado = round($promedio, 0, PHP_ROUND_HALF_UP);
+                                                        echo str_pad($redondeado, 2, '0', STR_PAD_LEFT);
                                                     } else {
-                                                        echo $e['nota_actual'] ?? '-';
+                                                        // Redondear la nota actual si existe
+                                                        $nota_actual = $e['nota_actual'] ?? null;
+                                                        if ($nota_actual !== null) {
+                                                            $redondeado = round((float)$nota_actual, 0, PHP_ROUND_HALF_UP);
+                                                            echo str_pad($redondeado, 2, '0', STR_PAD_LEFT);
+                                                        } else {
+                                                            echo '-';
+                                                        }
                                                     }
                                                 ?>
                                             </td>
@@ -256,7 +266,8 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
                                                 <input type="number" step="0.1" min="0" max="20" 
                                                     name="nota[<?= $e['id_estudiante'] ?>]" 
                                                     class="form-control nota-recuperacion" placeholder="Ej: 14" 
-                                                    data-estudiante="<?= htmlspecialchars($e['nombres'].' '.$e['apellidos']) ?>">
+                                                    data-estudiante="<?= htmlspecialchars($e['nombres'].' '.$e['apellidos']) ?>"
+                                                    data-intento="<?= $prox_intento ?>">
                                                 <input type="hidden" name="intento[<?= $e['id_estudiante'] ?>]" value="<?= $prox_intento ?>">
                                             </td>
 
@@ -306,8 +317,11 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
                                     <?php foreach ($historial_agrupado as $estudiante): 
                                         $ultimo_registro = $estudiante['registros'][0]; 
                                         $registros_count = count($estudiante['registros']);
-                                        $estado_clase = ($ultimo_registro['calificacion'] >= 10) ? 'badge-success' : 'badge-danger';
-                                        $estado_texto = ($ultimo_registro['calificacion'] >= 10) ? 'Aprobado' : 'Reprobado';
+                                        
+                                        // Redondear la nota para determinar estado
+                                        $nota_redondeada = round($ultimo_registro['calificacion'], 0, PHP_ROUND_HALF_UP);
+                                        $estado_clase = ($nota_redondeada >= 10) ? 'badge-success' : 'badge-danger';
+                                        $estado_texto = ($nota_redondeada >= 10) ? 'Aprobado' : 'Reprobado';
                                     ?>
                                         <tr>
                                             <td class="details-control"><i class="fas fa-plus-circle"></i><i class="fas fa-minus-circle"></i></td>
@@ -315,7 +329,7 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
                                             <td><?= htmlspecialchars($ultimo_registro['nombre_materia']) ?></td>
                                             <td><?= $registros_count ?></td>
                                             <td>
-                                                <?= $ultimo_registro['calificacion'] ?> 
+                                                <?= str_pad($nota_redondeada, 2, '0', STR_PAD_LEFT) ?> 
                                                 <span class="badge <?= $estado_clase ?>"><?= $estado_texto ?></span>
                                             </td>
                                             <td><?= $ultimo_registro['intento'] ?>° (<?= strtoupper($ultimo_registro['tipo']) ?>)</td>
@@ -345,15 +359,56 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
+// Función para formatear mensajes en singular/plural
+function formatMensaje(cantidad, singular, plural) {
+    return cantidad === 1 ? singular : plural;
+}
+
 // Validación/activación de observación y envío con resumen
 $('#formRecuperacion').on('submit', function(e){
     e.preventDefault();
+
+    // Verificar si al menos UNA nota fue ingresada
+    let notasIngresadas = false;
+    let estudiantesUltimoIntento = [];
+    
+    $('#formRecuperacion .nota-recuperacion').each(function(){
+        const val = $(this).val();
+        if (val !== '' && val !== null && val.trim() !== '') {
+            notasIngresadas = true;
+            const intento = parseInt($(this).data('intento'));
+            const tipo = $('input[name="tipo"]').val();
+            
+            // Verificar si es último intento
+            if ((tipo === 'revision' && intento === 2) || (tipo === 'pendiente' && intento === 4)) {
+                estudiantesUltimoIntento.push({
+                    nombre: $(this).data('estudiante'),
+                    tipo: tipo,
+                    intento: intento
+                });
+            }
+        }
+    });
+
+    // Si no hay ninguna nota ingresada, mostrar mensaje
+    if (!notasIngresadas) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Sin datos para guardar',
+            html: '<div style="text-align: center;">Debe ingresar al menos una nota para poder guardar.</div>',
+            confirmButtonText: 'Entendido',
+            customClass: {
+                popup: 'animated fadeIn'
+            }
+        });
+        return;
+    }
 
     // Validar: si se ingresó una nota, la observación debe no estar vacía
     let errores = [];
     $('#formRecuperacion .nota-recuperacion').each(function(){
         const val = $(this).val();
-        if (val !== '' && val !== null) {
+        if (val !== '' && val !== null && val.trim() !== '') {
             const id = $(this).attr('name').match(/\[(\d+)\]/)[1];
             const obs = $(`input[name="observaciones[${id}]"]`).val().trim();
             if (obs === '') {
@@ -366,19 +421,55 @@ $('#formRecuperacion').on('submit', function(e){
         Swal.fire({
             icon: 'warning',
             title: 'Faltan observaciones',
-            html: errores.slice(0,5).join('<br>') + (errores.length>5?'<br>...':''),
-            confirmButtonText: 'Corregir'
+            html: '<div style="text-align: left;">' + errores.slice(0,5).join('<br>') + (errores.length>5?'<br>...':'') + '</div>',
+            confirmButtonText: 'Corregir',
+            customClass: {
+                popup: 'animated fadeIn'
+            }
         });
         return;
     }
 
+    // Preparar mensaje de confirmación especial si hay último intento
+    let mensajeConfirmacion = '<div style="text-align: center;">¿Confirmar registro de las notas ingresadas?</div>';
+    let iconoConfirmacion = 'question';
+    let tituloConfirmacion = 'Confirmar registro';
+    let colorBoton = '#3085d6';
+    
+    if (estudiantesUltimoIntento.length > 0) {
+        tituloConfirmacion = '⚠️ ¡ATENCIÓN!';
+        iconoConfirmacion = 'warning';
+        colorBoton = '#d33';
+        
+        mensajeConfirmacion = '<div style="text-align: left;">';
+        mensajeConfirmacion += '<div style="background: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107; margin-bottom: 15px;">';
+        mensajeConfirmacion += '<strong><i class="fas fa-exclamation-triangle"></i> ÚLTIMO INTENTO</strong><br>';
+        
+        estudiantesUltimoIntento.forEach((est, index) => {
+            if (est.tipo === 'revision') {
+                mensajeConfirmacion += `<div style="margin-top: 5px;">• <strong>${est.nombre}</strong>: 2° y último intento de revisión. Si reprueba, será movido a Materias Pendientes.</div>`;
+            } else if (est.tipo === 'pendiente') {
+                mensajeConfirmacion += `<div style="margin-top: 5px;">• <strong>${est.nombre}</strong>: 4° y último intento. Si reprueba, será <strong style="color: #d33;">APLAZADO</strong> y repetirá el año escolar.</div>`;
+            }
+        });
+        
+        mensajeConfirmacion += '</div>';
+        mensajeConfirmacion += '<div style="text-align: center; margin-top: 10px;">¿Desea continuar con el registro?</div>';
+        mensajeConfirmacion += '</div>';
+    }
+
     Swal.fire({
-        title: '¿Confirmar registro?',
-        text: 'Se guardarán las notas ingresadas.',
-        icon: 'question',
+        title: tituloConfirmacion,
+        html: mensajeConfirmacion,
+        icon: iconoConfirmacion,
         showCancelButton: true,
-        confirmButtonText: 'Sí, guardar',
-        cancelButtonText: 'Cancelar'
+        confirmButtonText: estudiantesUltimoIntento.length > 0 ? 'Sí, guardar igual' : 'Sí, guardar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: colorBoton,
+        width: '550px',
+        customClass: {
+            popup: 'animated fadeIn'
+        }
     }).then((result) => {
         if(result.isConfirmed){
             $.ajax({
@@ -391,34 +482,109 @@ $('#formRecuperacion').on('submit', function(e){
                         // Mensaje resumido con detalles si vienen
                         let summary = resp.summary || {};
                         let lines = [];
-                        if (typeof summary.aprobados !== 'undefined') lines.push(`<strong>${summary.aprobados}</strong> aprobados`);
-                        if (typeof summary.reprobados !== 'undefined') lines.push(`<strong>${summary.reprobados}</strong> reprobados`);
-                        if (typeof summary.movido_a_pendiente_count !== 'undefined' && summary.movido_a_pendiente_count > 0) {
-                            lines.push(`<strong>${summary.movido_a_pendiente_count}</strong> movidos a Materias Pendientes`);
+                        
+                        // Mensaje principal con singular/plural
+                        const totalRegistros = summary.total_registros || 0;
+                        const mensajePrincipal = formatMensaje(totalRegistros, 
+                            `✅ Se guardó <strong>${totalRegistros}</strong> registro correctamente.`, 
+                            `✅ Se guardaron <strong>${totalRegistros}</strong> registros correctamente.`
+                        );
+                        
+                        // Solo mostrar reprobados si NO hay aplazados (para evitar redundancia)
+                        if (typeof summary.reprobados !== 'undefined' && summary.reprobados > 0 && 
+                            (!summary.aplazados_count || summary.aplazados_count === 0)) {
+                            lines.push(`<strong>${summary.reprobados}</strong> ${formatMensaje(summary.reprobados, 'reprobado', 'reprobados')}`);
                         }
+                        
+                        if (typeof summary.aprobados !== 'undefined' && summary.aprobados > 0) {
+                            lines.push(`<strong>${summary.aprobados}</strong> ${formatMensaje(summary.aprobados, 'aprobado', 'aprobados')}`);
+                        }
+                        
+                        if (typeof summary.movido_a_pendiente_count !== 'undefined' && summary.movido_a_pendiente_count > 0) {
+                            lines.push(`<strong>${summary.movido_a_pendiente_count}</strong> ${formatMensaje(summary.movido_a_pendiente_count, 'movido a pendientes', 'movidos a pendientes')}`);
+                        }
+                        
                         if (typeof summary.aplazados_count !== 'undefined' && summary.aplazados_count > 0) {
-                            lines.push(`<strong>${summary.aplazados_count}</strong> estudiantes aplazados (repite año: ${resp.gestion_activa || 'N/A'})`);
+                            // Si hay aplazados, NO mostrar "reprobados" en las líneas para evitar redundancia
+                            lines = lines.filter(line => !line.includes('reprobado'));
+                            lines.push(`<strong>${summary.aplazados_count}</strong> ${formatMensaje(summary.aplazados_count, 'estudiante aplazado', 'estudiantes aplazados')}`);
                         }
 
-                        const htmlMsg = resp.message + '<br><br>' + (lines.length ? lines.join('<br>') : '');
+                        // Detalles individuales si hay estudiantes aplazados (en lista compacta)
+                        let detallesAplazados = '';
+                        if (resp.detalles_aplazados && resp.detalles_aplazados.length > 0) {
+                            detallesAplazados = '<hr style="margin: 15px 0; border-color: #ff6b6b;">';
+                            detallesAplazados += '<div style="text-align: left; font-size: 0.9em;">';
+                            detallesAplazados += '<strong style="color: #d33;"><i class="fas fa-exclamation-circle"></i> Detalle de aplazados:</strong><br>';
+                            resp.detalles_aplazados.forEach((detalle, index) => {
+                                detallesAplazados += `<div style="margin-top: 5px;">${detalle}</div>`;
+                            });
+                            detallesAplazados += '</div>';
+                        }
+
+                        const htmlMsg = `
+                            <div style="text-align: center;">
+                                <div style="font-size: 1.1em; margin-bottom: 15px; color: #2c3e50;">
+                                    ${mensajePrincipal}
+                                </div>
+                                ${lines.length > 0 ? `
+                                    <div style="background: #f8f9fa; padding: 12px; border-radius: 5px; margin: 15px 0; border: 1px solid #e9ecef;">
+                                        ${lines.join(' · ')}
+                                    </div>
+                                ` : ''}
+                                ${detallesAplazados}
+                                ${resp.gestion_activa ? `
+                                    <div style="margin-top: 15px; font-size: 0.85em; color: #6c757d; padding-top: 10px; border-top: 1px solid #dee2e6;">
+                                        <i class="fas fa-calendar-alt"></i> Gestión: ${resp.gestion_activa}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                        
                         Swal.fire({
                             icon: 'success',
                             title: 'Operación completada',
                             html: htmlMsg,
-                            confirmButtonText: 'Aceptar'
+                            confirmButtonText: 'Aceptar',
+                            width: '500px',
+                            customClass: {
+                                popup: 'animated fadeIn'
+                            }
                         }).then(() => {
                             if (resp.reload) location.reload();
+                        });
+                    } else if (resp.status === 'warning') {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Sin datos',
+                            html: '<div style="text-align: center;">' + resp.message + '</div>',
+                            confirmButtonText: 'Entendido',
+                            customClass: {
+                                popup: 'animated fadeIn'
+                            }
                         });
                     } else {
                         Swal.fire({
                             icon: 'error',
                             title: 'Error',
-                            html: resp.message || 'Ocurrió un error al guardar.'
+                            html: '<div style="text-align: center;">' + (resp.message || 'Ocurrió un error al guardar.') + '</div>',
+                            confirmButtonText: 'Entendido',
+                            customClass: {
+                                popup: 'animated fadeIn'
+                            }
                         });
                     }
                 },
                 error: function(){
-                    Swal.fire('Error','No se pudo conectar con el servidor.','error');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error de conexión',
+                        html: '<div style="text-align: center;">No se pudo conectar con el servidor.</div>',
+                        confirmButtonText: 'Entendido',
+                        customClass: {
+                            popup: 'animated fadeIn'
+                        }
+                    });
                 }
             });
         }
@@ -445,8 +611,11 @@ function format(d) {
             <tbody>`;
     
     d.registros.forEach((r, index) => {
-        const estado = (r.calificacion >= 10) ? 'Aprobado' : 'Reprobado';
-        const estadoClase = (r.calificacion >= 10) ? 'text-success' : 'text-danger';
+        // Redondear nota para mostrar
+        const notaRedondeada = Math.round(r.calificacion);
+        const notaFormateada = notaRedondeada.toString().padStart(2, '0');
+        const estado = (notaRedondeada >= 10) ? 'Aprobado' : 'Reprobado';
+        const estadoClase = (notaRedondeada >= 10) ? 'text-success' : 'text-danger';
         const observ = (r.observaciones !== undefined && r.observaciones !== null && r.observaciones !== '') ? r.observaciones : '-';
         
         html += `
@@ -455,7 +624,7 @@ function format(d) {
                 <td>${new Date(r.fecha_registro).toLocaleDateString('es-ES')}</td>
                 <td><span class="badge badge-secondary">${r.tipo.toUpperCase()}</span></td>
                 <td>${r.intento}°</td>
-                <td><strong class="${estadoClase}">${r.calificacion}</strong></td>
+                <td><strong class="${estadoClase}">${notaFormateada}</strong></td>
                 <td><span class="badge ${estado === 'Aprobado' ? 'badge-success' : 'badge-danger'}">${estado}</span></td>
                 <td>${observ}</td>
             </tr>`;
@@ -480,15 +649,28 @@ $(document).ready(function() {
             { data: 'nombre_completo' },
             { data: 'registros.0.nombre_materia' },
             { data: 'registros.length' },
-            { data: 'registros.0.calificacion',
-              render: function(data, type, row) {
-                  const estado = (data >= 10) ? 'Aprobado' : 'Reprobado';
-                  const estadoClase = (data >= 10) ? 'badge-success' : 'badge-danger';
-                  return `${data} <span class="badge ${estadoClase}">${estado}</span>`;
-              }
+            { 
+                data: 'registros.0.calificacion',
+                render: function(data, type, row) {
+                    const notaRedondeada = Math.round(data);
+                    const notaFormateada = notaRedondeada.toString().padStart(2, '0');
+                    const estado = (notaRedondeada >= 10) ? 'Aprobado' : 'Reprobado';
+                    const estadoClase = (notaRedondeada >= 10) ? 'badge-success' : 'badge-danger';
+                    return `${notaFormateada} <span class="badge ${estadoClase}">${estado}</span>`;
+                }
             },
-            { data: 'registros.0.intento', render: function(data, type, row) { return `${data}° (${row.registros[0].tipo.toUpperCase()})`; } },
-            { data: 'registros.0.fecha_registro', render: function(data, type, row) { return new Date(data).toLocaleDateString('es-ES'); } },
+            { 
+                data: 'registros.0.intento', 
+                render: function(data, type, row) { 
+                    return `${data}° (${row.registros[0].tipo.toUpperCase()})`; 
+                } 
+            },
+            { 
+                data: 'registros.0.fecha_registro', 
+                render: function(data, type, row) { 
+                    return new Date(data).toLocaleDateString('es-ES'); 
+                } 
+            },
         ],
         language: {
             search: "🔍 Buscar:",
@@ -517,7 +699,7 @@ $(document).ready(function() {
         const val = $(this).val();
         const id = $(this).attr('name').match(/\[(\d+)\]/)[1];
         const obsField = $(`input[name="observaciones[${id}]"]`);
-        if (val !== '' && val !== null) {
+        if (val !== '' && val !== null && val.trim() !== '') {
             obsField.prop('required', true);
             obsField.addClass('border-warning');
         } else {
