@@ -1,5 +1,5 @@
 <?php  
-// Cargar PHPMailer al inicio del archivo
+// PHPMailer
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use PHPMailer\PHPMailer\PHPMailer;

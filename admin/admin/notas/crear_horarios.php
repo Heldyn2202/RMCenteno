@@ -181,6 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['grado'])) {
         null // id_horario_excluir (null para nuevos horarios)
     );
     
+    // Solo bloquear si hay ERRORES (no advertencias)
     if (!$es_valido) {
         // Mostrar todos los errores de validación
         $errores = $validador->getErrores();
@@ -190,7 +191,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['grado'])) {
         ?><script>window.history.back();</script><?php
         exit;
     }
-    // Insertar horario principal
+    
+    // Si hay advertencias, guardarlas para mostrarlas después de guardar
+    $advertencias = $validador->getAdvertencias();
+    // Insertar horario principal (con valores por defecto para campos ocultos)
+    // Nota: aula, fecha_inicio y fecha_fin son NOT NULL en la BD, por lo que usamos valores por defecto
+    $aula = ''; // Cadena vacía para aula
+    $fecha_inicio = date('Y-m-d'); // Fecha actual como fecha_inicio
+    $fecha_fin = date('Y-m-d', strtotime('+1 year')); // Un año después como fecha_fin
+    
     $stmt = $pdo->prepare("INSERT INTO horarios 
                           (id_gestion, id_grado, id_seccion, aula, fecha_inicio, fecha_fin) 
                           VALUES (?, ?, ?, ?, ?, ?)");
@@ -198,9 +207,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['grado'])) {
         $gestion_activa['id_gestion'],
         $_POST['grado'],
         $_POST['seccion'],
-        $_POST['aula'] ?? null,
-        $_POST['fecha_inicio'] ?? null,
-        $_POST['fecha_fin'] ?? null
+        $aula,
+        $fecha_inicio,
+        $fecha_fin
     ]);
     $id_horario = $pdo->lastInsertId();
 
@@ -248,8 +257,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['grado'])) {
     }
 
     // Guardar en sesión para mostrar mensaje
-    $_SESSION['mensaje'] = 'Horario creado exitosamente. Puedes verlo en "Horarios Consolidados" o descargar el PDF.';
-    $_SESSION['icono'] = 'success';
+    if (!empty($advertencias)) {
+        // Si hay advertencias, mostrarlas junto con el mensaje de éxito
+        $_SESSION['mensaje'] = 'Horario creado exitosamente. Puedes verlo en "Horarios Consolidados" o descargar el PDF.<br><br>' .
+                               '<strong>Advertencias:</strong><br>' . 
+                               implode('<br>• ', $advertencias);
+        $_SESSION['icono'] = 'warning'; // Icono de advertencia en lugar de éxito
+    } else {
+        $_SESSION['mensaje'] = 'Horario creado exitosamente. Puedes verlo en "Horarios Consolidados" o descargar el PDF.';
+        $_SESSION['icono'] = 'success';
+    }
     
     // Redirigir a vista consolidada con los parámetros
     header("Location: horarios_consolidados.php?grado=" . $_POST['grado'] . "&seccion=" . $_POST['seccion']);
@@ -315,37 +332,16 @@ include('../../admin/layout/parte1.php');
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label for="seccion">Sección/Turno</label>
-                                    <select id="seccion" name="seccion" class="form-control" required>
-                                        <option value="">Seleccionar Sección</option>
-                                        <?php foreach($orderedSecc as $it): ?>
-                                            <option value="<?= htmlspecialchars($it[2]) ?>"><?= htmlspecialchars($it[0] . ' (' . $it[1] . ')') ?></option>
-                                        <?php endforeach; ?>
+                                    <select id="seccion" name="seccion" class="form-control" required disabled>
+                                        <option value="">Primero seleccione un Grado</option>
                                     </select>
+                                    <small class="form-text text-muted" id="seccion-help">Las secciones se cargarán según el grado seleccionado</small>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Información Adicional -->
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label>Aula</label>
-                                    <input type="text" name="aula" class="form-control" placeholder="Ej: Aula 101">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label>Fecha Inicio</label>
-                                    <input type="date" name="fecha_inicio" class="form-control">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label>Fecha Fin</label>
-                                    <input type="date" name="fecha_fin" class="form-control">
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Campos de Aula, Fecha Inicio y Fecha Fin ocultos según solicitud del usuario -->
 
                         <!-- Horario Semanal -->
                         <div class="table-responsive mt-4">
@@ -374,31 +370,26 @@ include('../../admin/layout/parte1.php');
                                         <td><?= "$inicio - $fin" ?></td>
                                         <?php foreach(['Lunes','Martes','Miércoles','Jueves','Viernes'] as $dia): ?>
                                         <td>
-                                            <select name="horario[<?= $dia ?>][<?= $inicio ?>][materia]" class="form-control mb-2 materia-select" data-grado="<?= $g['id_grado'] ?? '' ?>" style="font-size: 12px;">
-                                                <option value="" data-placeholder="true">-- Materia --</option>
-                                                <?php foreach($materias as $m): 
-                                                    // Obtener grados asociados (del id_grado directo + grados_materias)
-                                                    $grados_mat = [$m['id_grado']];
-                                                    if (!empty($m['grados_asociados'])) {
-                                                        $grados_mat = array_merge($grados_mat, explode(',', $m['grados_asociados']));
-                                                    }
-                                                    $grados_mat_str = implode(',', array_filter($grados_mat));
-                                                ?>
-                                                <option value="<?= $m['id_materia'] ?>" 
-                                                        data-grado-mat="<?= $m['id_grado'] ?>"
-                                                        data-grados-asociados="<?= $grados_mat_str ?>">
-                                                    <?= htmlspecialchars($m['nombre_materia']) ?>
-                                                </option>
-                                                <?php endforeach; ?>
+                                            <select name="horario[<?= $dia ?>][<?= $inicio ?>][materia]" 
+                                                    class="form-control mb-2 materia-select" 
+                                                    data-grado="<?= $g['id_grado'] ?? '' ?>" 
+                                                    data-profesor=""
+                                                    data-seccion=""
+                                                    data-dia="<?= $dia ?>"
+                                                    data-inicio="<?= $inicio ?>"
+                                                    style="font-size: 12px;"
+                                                    disabled>
+                                                <option value="" data-placeholder="true">-- Seleccione primero Profesor --</option>
                                             </select>
-                                            <select name="horario[<?= $dia ?>][<?= $inicio ?>][profesor]" class="form-control profesor-select" style="font-size: 12px;"
-                                                    data-dia="<?= $dia ?>" data-inicio="<?= $inicio ?>" data-fin="<?= $fin ?>">
-                                                <option value="" data-placeholder="true">-- Profesor --</option>
-                                                <?php foreach($profesores as $p): ?>
-                                                <option value="<?= $p['id_profesor'] ?>">
-                                                    <?= htmlspecialchars($p['nombres'].' '.$p['apellidos']) ?>
-                                                </option>
-                                                <?php endforeach; ?>
+                                            <select name="horario[<?= $dia ?>][<?= $inicio ?>][profesor]" 
+                                                    class="form-control profesor-select" 
+                                                    style="font-size: 12px;"
+                                                    data-dia="<?= $dia ?>" 
+                                                    data-inicio="<?= $inicio ?>" 
+                                                    data-fin="<?= $fin ?>"
+                                                    data-seccion=""
+                                                    disabled>
+                                                <option value="" data-placeholder="true">-- Seleccione primero Sección --</option>
                                             </select>
                                             <input type="hidden" name="horario[<?= $dia ?>][<?= $inicio ?>][hora_inicio]" value="<?= $inicio ?>">
                                             <input type="hidden" name="horario[<?= $inicio ?>][<?= $dia ?>][hora_fin]" value="<?= $fin ?>">
@@ -415,9 +406,6 @@ include('../../admin/layout/parte1.php');
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> Guardar horario
                         </button>
-                        <button type="button" id="previsualizar" class="btn btn-success">
-                            <i class="fas fa-eye"></i> Previsualizar
-                        </button>
                         <button type="button" id="rellenarPrueba" class="btn btn-info">
                             <i class="fas fa-magic"></i> Datos de Prueba
                         </button>
@@ -428,98 +416,509 @@ include('../../admin/layout/parte1.php');
     </div>
 </div>
 
-<!-- Modal de Previsualización -->
-<div class="modal fade" id="previewModal">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Previsualización del Horario</h5>
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <iframe id="previewFrame" style="width:100%;height:500px;border:none;"></iframe>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- JavaScript -->
 <script>
+// Función helper para mostrar notificaciones con SweetAlert2
+function mostrarNotificacion(icono, titulo, mensaje, tiempo = 3000) {
+    Swal.fire({
+        position: "top-end",
+        icon: icono,
+        title: titulo,
+        text: mensaje,
+        showConfirmButton: false,
+        timer: tiempo,
+        toast: true
+    });
+}
+
 $(function() {
-    // Filtrar materias según el grado seleccionado
-    function cargarSeccionesDeGrado(gradoId){
-        let hayMateriasParaGrado = false;
+    // ============================================================
+    // VALIDACIONES JERÁRQUICAS PARA HORARIOS
+    // ============================================================
+    
+    let idGradoSeleccionado = null;
+    let idSeccionSeleccionada = null;
+    
+    // ============================================================
+    // 1. FILTRO DE SECCIONES POR GRADO
+    // ============================================================
+    function cargarSeccionesPorGrado(gradoId) {
+        // Asegurar que el select existe y es correcto antes de usarlo
+        if (!asegurarSelectSeccion()) {
+            console.error('No se puede cargar secciones: el campo select no existe');
+            return;
+        }
         
-        if (gradoId) {
-            // Primero contar cuántas materias hay para este grado
-            $('.materia-select').first().find('option').each(function() {
-                const $option = $(this);
-                if ($option.val() === '') return;
-                
-                const matGrado = $option.data('grado-mat');
-                const gradosAsociados = $option.data('grados-asociados');
-                
-                // Verificar si la materia pertenece al grado seleccionado
-                const perteneceAGrado = (
-                    !matGrado || 
-                    matGrado == gradoId || 
-                    (gradosAsociados && gradosAsociados.includes(gradoId))
-                );
-                
-                if (perteneceAGrado) {
-                    hayMateriasParaGrado = true;
+        const $seccionSelect = $('#seccion');
+        const $seccionHelp = $('#seccion-help');
+        
+        // Verificar que es un select
+        if (!$seccionSelect.is('select')) {
+            console.error('El campo #seccion no es un select, no se pueden cargar secciones');
+            return;
+        }
+        
+        if (!gradoId || gradoId === '') {
+            $seccionSelect.html('<option value="">Primero seleccione un Grado</option>').prop('disabled', true);
+            if ($seccionHelp.length) {
+                $seccionHelp.text('Las secciones se cargarán según el grado seleccionado');
+            }
+            idGradoSeleccionado = null;
+            idSeccionSeleccionada = null;
+            limpiarProfesoresYMaterias();
+            return;
+        }
+        
+        idGradoSeleccionado = gradoId;
+        $seccionSelect.html('<option value="">Cargando secciones...</option>').prop('disabled', true);
+        if ($seccionHelp.length) {
+            $seccionHelp.text('Cargando secciones del grado seleccionado...');
+        }
+        
+        console.log('Haciendo petición AJAX para cargar secciones. Grado ID:', gradoId);
+        $.ajax({
+            url: 'ajax/obtener_secciones.php',
+            method: 'GET',
+            data: { id_grado: gradoId },
+            dataType: 'json',
+            cache: false,
+            success: function(response) {
+                console.log('Respuesta recibida de obtener_secciones:', response);
+                if (response.success && response.data.length > 0) {
+                    let options = '<option value="">Seleccionar Sección</option>';
+                    response.data.forEach(function(sec) {
+                        options += `<option value="${sec.id}">${sec.nombre}</option>`;
+                    });
+                    $seccionSelect.html(options).prop('disabled', false);
+                    $seccionHelp.text(`Se encontraron ${response.data.length} sección(es) para este grado`);
+                } else {
+                    $seccionSelect.html('<option value="">No hay secciones disponibles para este grado</option>').prop('disabled', true);
+                    $seccionHelp.text('No se encontraron secciones para el grado seleccionado');
                 }
-            });
-            
-            // Filtrar materias por grado (o mostrar todas si no hay específicas)
-            $('.materia-select').each(function() {
-                const $select = $(this);
-                const currentValue = $select.val();
+                limpiarProfesoresYMaterias();
+            },
+            error: function(xhr, status, error) {
+                console.error('Error AJAX obtener_secciones:', {
+                    status: status,
+                    error: error,
+                    responseText: xhr.responseText,
+                    statusCode: xhr.status,
+                    url: 'ajax/obtener_secciones.php?id_grado=' + gradoId
+                });
+                $seccionSelect.html('<option value="">Error al cargar secciones</option>').prop('disabled', true);
+                $seccionHelp.text('Error al cargar las secciones. Intente nuevamente. Revisa la consola del navegador.');
+                mostrarNotificacion('error', 'Error', 'Error al cargar secciones: ' + error);
                 
-                $select.find('option').each(function() {
-                    const $option = $(this);
-                    const matGrado = $option.data('grado-mat');
-                    const gradosAsociados = $option.data('grados-asociados');
+                // Intentar cargar secciones directamente desde el servidor como fallback
+                console.log('Intentando método alternativo...');
+            }
+        });
+    }
+    
+    // ============================================================
+    // 2. FILTRO DE PROFESORES POR SECCIÓN
+    // ============================================================
+    function cargarProfesoresPorSeccion(seccionId) {
+        if (!seccionId || seccionId === '' || !idGradoSeleccionado) {
+            limpiarProfesoresYMaterias();
+            return;
+        }
+        
+        idSeccionSeleccionada = seccionId;
+        
+        $.ajax({
+            url: 'ajax/obtener_profesores.php',
+            method: 'GET',
+            data: { id_seccion: seccionId },
+            dataType: 'json',
+            beforeSend: function() {
+                // Mostrar indicador de carga en todos los selects de profesores
+                $('.profesor-select').html('<option value="">Cargando profesores...</option>').prop('disabled', true);
+            },
+            success: function(response) {
+                if (response.success) {
+                    const profesores = response.data;
                     
-                    if ($option.val() === '') {
-                        return; // Mantener el placeholder
+                    // Actualizar todos los selects de profesores
+                    $('.profesor-select').each(function() {
+                const $select = $(this);
+                        const valorActual = $select.val();
+                        
+                        let options = '<option value="" data-placeholder="true">-- Profesor --</option>';
+                        profesores.forEach(function(prof) {
+                            options += `<option value="${prof.id}">${prof.nombre_completo}</option>`;
+                        });
+                        
+                        $select.html(options);
+                        $select.attr('data-seccion', seccionId);
+                        
+                        // Restaurar valor si aún existe
+                        if (valorActual && profesores.some(p => p.id == valorActual)) {
+                            $select.val(valorActual);
+                        } else {
+                            $select.val('');
+                        }
+                    });
+                    
+                    if (profesores.length === 0) {
+                        mostrarNotificacion('warning', 'Sin profesores', 'No hay profesores asignados a esta sección');
+                        $('.profesor-select').prop('disabled', true);
+                    } else {
+                        mostrarNotificacion('success', 'Profesores cargados', `Se cargaron ${profesores.length} profesor(es) para esta sección`);
+                        habilitarProfesores();
                     }
                     
-                    // Verificar si pertenece al grado (o mostrar todas si no hay específicas)
-                    const perteneceAGrado = (
-                        !matGrado || 
-                        matGrado == gradoId || 
-                        (gradosAsociados && gradosAsociados.includes(gradoId))
-                    );
-                    
-                    if (!hayMateriasParaGrado || perteneceAGrado) {
-                        // Si no hay materias específicas del grado, mostrar todas
-                        // O si esta materia pertenece al grado, mostrarla
-                        $option.show();
+                    // Limpiar materias ya que cambió la sección
+                    limpiarMaterias();
                     } else {
-                        $option.hide();
-                        // Si el valor seleccionado no coincide con el grado, limpiar selección
-                        if (currentValue == $option.val()) {
-                            $select.val('').trigger('change');
-                        }
+                    mostrarNotificacion('error', 'Error', response.message || 'Error al cargar profesores');
+                    limpiarProfesoresYMaterias();
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error AJAX obtener_profesores:', error, xhr.responseText);
+                mostrarNotificacion('error', 'Error', 'Error al cargar profesores: ' + error);
+                limpiarProfesoresYMaterias();
+            }
+        });
+    }
+    
+    // ============================================================
+    // 3. FILTRO DE MATERIAS POR PROFESOR Y SECCIÓN
+    // ============================================================
+    function cargarMateriasPorProfesorYSeccionParaSelect($profSelect, profesorId, seccionId) {
+        if (!profesorId || profesorId === '' || !seccionId || seccionId === '') {
+            console.warn('cargarMateriasPorProfesorYSeccionParaSelect: parámetros inválidos', {profesorId, seccionId});
+            return;
+        }
+        
+        // Encontrar el select de materias asociado a este profesor
+        // El materia-select está ANTES del profesor-select en el DOM
+        let $matSelect = $profSelect.prev('.materia-select');
+        
+        // Si no se encuentra con .prev(), intentar buscar por el contenedor padre
+        if (!$matSelect.length) {
+            const $parent = $profSelect.parent();
+            $matSelect = $parent.find('.materia-select').first();
+        }
+        
+        if (!$matSelect.length) {
+            console.error('No se encontró el select de materias para este profesor-select');
+            console.log('Profesor-select:', $profSelect);
+            console.log('Parent:', $profSelect.parent());
+            return;
+        }
+        
+        console.log('Cargando materias para profesor:', profesorId, 'sección:', seccionId);
+        
+        // Mostrar indicador de carga
+        $matSelect.html('<option value="">Cargando materias...</option>').prop('disabled', true);
+        
+        // Obtener el grado seleccionado para filtrar las materias
+        const idGrado = $('#grado').val();
+        
+        if (!idGrado || idGrado === '') {
+            console.warn('No se puede cargar materias: no hay grado seleccionado');
+            $matSelect.html('<option value="" data-placeholder="true">-- Primero seleccione un Grado --</option>').prop('disabled', true);
+            mostrarNotificacion('warning', 'Atención', 'Primero debe seleccionar un Grado');
+            return;
+        }
+        
+        $.ajax({
+            url: 'ajax/obtener_materias.php',
+            method: 'GET',
+            data: { 
+                id_profesor: profesorId,
+                id_seccion: seccionId,
+                id_grado: idGrado  // Agregar filtro por grado
+            },
+            dataType: 'json',
+            cache: false,
+            success: function(response) {
+                console.log('Respuesta AJAX obtener_materias (completa):', response);
+                console.log('Tipo de respuesta:', typeof response);
+                console.log('response.success:', response ? response.success : 'response es null/undefined');
+                
+                // Verificar si la respuesta es válida
+                if (!response) {
+                    console.error('Respuesta vacía o null');
+                    $matSelect.html('<option value="" data-placeholder="true">-- Error: Respuesta vacía --</option>').prop('disabled', true);
+                    mostrarNotificacion('error', 'Error', 'El servidor no respondió correctamente');
+                    return;
+                }
+                
+                // Intentar parsear si es string
+                if (typeof response === 'string') {
+                    try {
+                        response = JSON.parse(response);
+                        console.log('Respuesta parseada:', response);
+                    } catch (e) {
+                        console.error('Error parseando respuesta JSON:', e);
+                        $matSelect.html('<option value="" data-placeholder="true">-- Error: Respuesta inválida --</option>').prop('disabled', true);
+                        mostrarNotificacion('error', 'Error', 'Error al procesar la respuesta del servidor');
+                        return;
+                    }
+                }
+                
+                // Verificar si success es true (comparación estricta y flexible)
+                const isSuccess = response.success === true || 
+                                 response.success === 'true' || 
+                                 response.success === 1 ||
+                                 (typeof response.success === 'string' && response.success.toLowerCase() === 'true');
+                
+                console.log('Verificación de success:', {
+                    success: response.success,
+                    tipo: typeof response.success,
+                    isSuccess: isSuccess
+                });
+                
+                if (isSuccess) {
+                    const materias = response.data || [];
+                    const valorActual = $matSelect.data('last-value') || '';
+                    
+                    console.log('Materias recibidas:', materias.length, materias);
+                    
+                    let options = '<option value="" data-placeholder="true">-- Materia --</option>';
+                    if (materias.length > 0) {
+                        materias.forEach(function(mat) {
+                            const gradosAsoc = Array.isArray(mat.grados_asociados) ? mat.grados_asociados : [];
+                            options += `<option value="${mat.id}" 
+                                data-grado-mat="${mat.id_grado || ''}"
+                                data-grados-asociados="${gradosAsoc.join(',')}">${mat.nombre || 'Sin nombre'}</option>`;
+                        });
+                        $matSelect.prop('disabled', false);
+                        console.log(`✅ Se cargaron ${materias.length} materia(s) para este profesor`);
+                        mostrarNotificacion('success', 'Materias cargadas', `Se cargaron ${materias.length} materia(s)`);
+        } else {
+                        options = '<option value="" data-placeholder="true">-- No hay materias asignadas --</option>';
+                        $matSelect.prop('disabled', true);
+                        mostrarNotificacion('warning', 'Sin materias', 'Este profesor no tiene materias asignadas en esta sección');
+                        console.warn('No hay materias para este profesor en esta sección');
+                    }
+                    
+                    $matSelect.html(options);
+                    $matSelect.attr('data-profesor', profesorId);
+                    $matSelect.attr('data-seccion', seccionId);
+                    
+                    // Restaurar valor si aún existe
+                    if (valorActual && materias.some(m => m.id == valorActual)) {
+                        $matSelect.val(valorActual);
+        } else {
+                        $matSelect.val('');
+                    }
+                } else {
+                    // response.success es false o no existe
+                    const errorMsg = response && response.message ? response.message : 'Error desconocido al cargar materias';
+                    $matSelect.html('<option value="" data-placeholder="true">-- Error al cargar --</option>').prop('disabled', true);
+                    mostrarNotificacion('error', 'Error', errorMsg);
+                    console.error('❌ Error en respuesta. success=false o no existe:', {
+                        success: response.success,
+                        message: response.message,
+                        data: response.data,
+                        fullResponse: response
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error AJAX obtener_materias:', {
+                    status: status,
+                    error: error,
+                    statusCode: xhr.status,
+                    responseText: xhr.responseText,
+                    url: 'ajax/obtener_materias.php?id_profesor=' + profesorId + '&id_seccion=' + seccionId
+                });
+                
+                $matSelect.html('<option value="" data-placeholder="true">-- Error al cargar --</option>').prop('disabled', true);
+                
+                let errorMsg = 'Error al cargar materias';
+                if (xhr.status === 404) {
+                    errorMsg = 'El archivo obtener_materias.php no se encontró';
+                } else if (xhr.status === 500) {
+                    errorMsg = 'Error en el servidor al obtener materias';
+                } else if (error) {
+                    errorMsg = 'Error: ' + error;
+                }
+                
+                mostrarNotificacion('error', 'Error', errorMsg);
+            }
+        });
+    }
+    
+    // ============================================================
+    // FUNCIONES AUXILIARES
+    // ============================================================
+    function limpiarProfesoresYMaterias() {
+        $('.profesor-select').html('<option value="" data-placeholder="true">-- Seleccione primero Sección --</option>').val('').prop('disabled', true);
+        limpiarMaterias();
+    }
+    
+    function limpiarMaterias() {
+        $('.materia-select').html('<option value="" data-placeholder="true">-- Seleccione primero Profesor --</option>').val('').prop('disabled', true);
+    }
+    
+    function habilitarProfesores() {
+        $('.profesor-select').prop('disabled', false);
+    }
+    
+    function habilitarMaterias() {
+        $('.materia-select').prop('disabled', false);
+    }
+    
+    // ============================================================
+    // EVENT LISTENERS
+    // ============================================================
+    
+    // El evento change del grado se maneja en inicializarFormulario()
+    
+    // Cuando cambia la sección
+    $('#seccion').on('change', function() {
+        const seccionId = $(this).val();
+        cargarProfesoresPorSeccion(seccionId);
+    });
+    
+    // Cuando cambia un profesor
+    $(document).on('change', '.profesor-select', function() {
+        const $profSelect = $(this);
+        const profesorId = $profSelect.val();
+        const seccionId = idSeccionSeleccionada || $('#seccion').val();
+        
+        console.log('Profesor cambió:', {profesorId, seccionId});
+        
+        // Encontrar el select de materias asociado
+        let $matSelect = $profSelect.prev('.materia-select');
+        if (!$matSelect.length) {
+            const $parent = $profSelect.parent();
+            $matSelect = $parent.find('.materia-select').first();
+        }
+        
+        // Si no hay profesor seleccionado, limpiar materias
+        if (!profesorId || profesorId === '') {
+            if ($matSelect.length) {
+                $matSelect.html('<option value="" data-placeholder="true">-- Seleccione primero Profesor --</option>').val('').prop('disabled', true);
+            }
+            return;
+        }
+        
+        // Validar que haya una sección seleccionada
+        if (!seccionId || seccionId === '') {
+            mostrarNotificacion('warning', 'Atención', 'Primero debe seleccionar una Sección');
+            $profSelect.val('');
+            if ($matSelect.length) {
+                $matSelect.html('<option value="" data-placeholder="true">-- Seleccione primero Sección --</option>').val('').prop('disabled', true);
+            }
+            return;
+        }
+        
+        // Cargar materias para este profesor específico en esta sección
+        cargarMateriasPorProfesorYSeccionParaSelect($profSelect, profesorId, seccionId);
+        
+        // Validación de disponibilidad existente
+        const dia = $profSelect.data('dia');
+        const hi = $profSelect.data('inicio');
+        const hf = $profSelect.data('fin');
+        if (profesorId && dia && hi && hf) {
+            // Mostrar indicador de carga mientras se valida
+            const $loadingIcon = $('<i class="fas fa-spinner fa-spin" style="margin-left: 5px; color: #007bff;"></i>');
+            $profSelect.after($loadingIcon);
+            
+            // Usar timeout para evitar múltiples peticiones simultáneas
+            if ($profSelect.data('validation-timeout')) {
+                clearTimeout($profSelect.data('validation-timeout'));
+            }
+            
+            const timeoutId = setTimeout(function() {
+                // Log para debugging
+                console.log('Validando conflicto:', {
+                    profesor: profesorId,
+                    dia: dia,
+                    hora_inicio: hi,
+                    hora_fin: hf
+                });
+                
+                $.ajax({
+                    url: 'api_check_profesor.php',
+                    method: 'GET',
+                    data: { 
+                        profesor: profesorId, 
+                        dia: dia, 
+                        hi: hi, 
+                        hf: hf,
+                        _: Date.now() // Cache buster
+                    },
+                    cache: false,
+                    timeout: 5000, // Timeout de 5 segundos
+                    success: function(resp) {
+                        console.log('Respuesta validación:', resp);
+                        // Remover indicador de carga
+                        $loadingIcon.remove();
+                        $profSelect.removeData('validation-timeout');
+                        
+                if (resp && resp.ok && resp.ocupado) {
+                            // Construir mensaje detallado del conflicto (formato exacto como en la imagen)
+                            let mensajeDetallado = 'El profesor ya está asignado en este bloque.';
+                    if (resp.conflictos && resp.conflictos.length) {
+                        const c = resp.conflictos[0];
+                                // Formatear hora (sin segundos si los tiene)
+                                const horaInicio = c.hora_inicio ? c.hora_inicio.substring(0, 5) : '';
+                                // Inferir hora_fin si es inválida (00:00:00 o NULL)
+                                let horaFin = c.hora_fin ? c.hora_fin.substring(0, 5) : '';
+                                if (!horaFin || horaFin === '00:00') {
+                                    const mapaHoras = {
+                                        '07:50': '08:30',
+                                        '08:30': '09:10',
+                                        '09:10': '09:50',
+                                        '10:10': '10:50',
+                                        '10:50': '11:30',
+                                        '11:30': '12:10'
+                                    };
+                                    horaFin = mapaHoras[horaInicio] || horaFin;
+                                }
+                                // Obtener nombre del profesor
+                                const nombreProfesor = c.profesor_nombre || 'El profesor';
+                                // Construir mensaje exacto como en la imagen: "Materia · GRADO SECCIÓN · hora-hora"
+                                const materia = c.nombre_materia || 'Materia';
+                                const grado = c.grado || '';
+                                const seccion = c.nombre_seccion || '';
+                                // Formato: "El profesor [Nombre] ya está asignado en este bloque. Matemáticas · CUARTO AÑO B · 08:30-09:10"
+                                // Sin campo de aula según solicitud del usuario
+                                mensajeDetallado = `El profesor ${nombreProfesor} ya está asignado en este bloque. ${materia} · ${grado} ${seccion} · ${horaInicio}-${horaFin}`;
+                            }
+                            
+                            // Mostrar alerta modal con SweetAlert2 (similar a cuando se guarda)
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Conflicto',
+                                text: mensajeDetallado,
+                                showConfirmButton: true,
+                                confirmButtonText: 'Entendido',
+                                timer: null, // No cerrar automáticamente
+                                allowOutsideClick: true
+                            });
+                            
+                            // Limpiar selección
+                    $profSelect.val('');
+                    if ($matSelect.length) {
+                        $matSelect.html('<option value="" data-placeholder="true">-- Seleccione primero Profesor --</option>').val('').prop('disabled', true);
+                    }
+                }
+                    },
+                    error: function(xhr, status, error) {
+                        // Remover indicador de carga en caso de error
+                        $loadingIcon.remove();
+                        $profSelect.removeData('validation-timeout');
+                        console.error('Error en validación de conflicto:', error);
                     }
                 });
-            });
+            }, 300); // Debounce de 300ms para evitar peticiones excesivas
             
-            // No recargar Sección/Turno por grado: mostrar lista global pre-cargada
-            $('#seccion').prop('disabled', false);
-        } else {
-            $('.materia-select option').show();
-            $('#seccion').prop('disabled', false);
+            $profSelect.data('validation-timeout', timeoutId);
         }
-    }
+    });
 
-    $('#grado').on('change input click', function() { cargarSeccionesDeGrado($(this).val()); });
-
-    // Inicializar solo filtrado de materias (Sección/Turno ya viene pre-cargado globalmente)
-    const gradoInicial = $('#grado').val();
-    $('#seccion').prop('disabled', false);
-    cargarSeccionesDeGrado(gradoInicial);
+    // ============================================================
+    // INICIALIZACIÓN Y ESTILOS
+    // ============================================================
     
     // Asegurar que cuando se selecciona una opción, se muestre correctamente
     $('.materia-select, .profesor-select').on('change', function() {
@@ -546,20 +945,6 @@ $(function() {
         }
     });
     
-    // Prevenir que el placeholder se envíe como valor válido
-    $('form').on('submit', function(e) {
-        // Limpiar valores vacíos antes de enviar
-        $('.materia-select, .profesor-select').each(function() {
-            const $select = $(this);
-            const $selectedOption = $select.find('option:selected');
-            
-            // Si es placeholder, forzar valor vacío
-            if ($selectedOption.data('placeholder') === true || $select.val() === '') {
-                $select.val('').prop('selectedIndex', 0);
-            }
-        });
-    });
-    
     // Inicializar estilos para selects vacíos
     $('.materia-select, .profesor-select').each(function() {
         if (!$(this).val()) {
@@ -570,86 +955,314 @@ $(function() {
         }
     });
     
-    // Rellenar datos de prueba
-    $('#rellenarPrueba').click(function() {
-        // Seleccionar primer grado y sección válidos
-        const firstGrado = $('#grado option').eq(1).val();
-        const firstSeccion = $('#seccion option').eq(1).val();
-        if (firstGrado) $('#grado').val(firstGrado);
-        if (firstSeccion) $('#seccion').val(firstSeccion);
+    // Función para asegurar que el select de sección existe y es un select, no un input
+    function asegurarSelectSeccion() {
+        const $seccionField = $('#seccion');
         
-        // Establecer fechas
-        const hoy = new Date().toISOString().split('T')[0];
-        const mesSiguiente = new Date();
-        mesSiguiente.setMonth(mesSiguiente.getMonth() + 1);
-        const fin = mesSiguiente.toISOString().split('T')[0];
+        // Verificar si el elemento existe
+        if ($seccionField.length === 0) {
+            console.error('El campo #seccion no existe en el DOM');
+            return false;
+        }
         
-        $('[name="aula"]').val('Aula 101');
-        $('[name="fecha_inicio"]').val(hoy);
-        $('[name="fecha_fin"]').val(fin);
+        // Verificar si es un select, si no lo es, convertirlo
+        if ($seccionField.is('input')) {
+            console.warn('El campo #seccion es un input, convirtiéndolo a select');
+            const $label = $('label[for="seccion"]');
+            const $help = $('#seccion-help');
+            const $parent = $seccionField.parent();
+            const disabled = $seccionField.prop('disabled');
+            const value = $seccionField.val();
+            
+            // Crear nuevo select
+            const $newSelect = $('<select>', {
+                id: 'seccion',
+                name: 'seccion',
+                class: 'form-control',
+                required: true,
+                disabled: disabled
+            });
+            $newSelect.html('<option value="">Primero seleccione un Grado</option>');
+            
+            // Reemplazar el input con el select
+            $seccionField.replaceWith($newSelect);
+            console.log('Campo convertido de input a select');
+        }
         
-        // Rellenar algunos bloques
-        const materiaVal = $('.materia-select option:not(:first)').first().val() || '';
-        const profesorVal = $('.profesor-select option:not(:first)').first().val() || '';
-        // Llenar el primer bloque de cada día con la primera materia/profesor disponibles
-        ['Lunes','Martes','Miércoles','Jueves','Viernes'].forEach((dia) => {
-            const bloqueMateria = $(`select[name^="horario[${dia}]"]`).first();
-            if (bloqueMateria.length) {
-                if (materiaVal) bloqueMateria.val(materiaVal);
-                const bloqueProfesor = bloqueMateria.next('.profesor-select');
-                if (profesorVal && bloqueProfesor.length) bloqueProfesor.val(profesorVal);
-            }
-        });
+        // Asegurar que es un select
+        if (!$('#seccion').is('select')) {
+            console.error('El campo #seccion no es un select después de la conversión');
+            return false;
+        }
         
-        toastr.success('Datos de prueba cargados');
-    });
+        return true;
+    }
     
-    // Validación de disponibilidad de profesor al seleccionar
-    $(document).on('change', '.profesor-select', function(){
-        const $sel = $(this);
-        const profId = $sel.val();
-        if (!profId) return; // sin profesor => sin validación remota
-        const dia  = $sel.data('dia');
-        const hi   = $sel.data('inicio');
-        const hf   = $sel.data('fin');
-        $.get('api_check_profesor.php', { profesor: profId, dia: dia, hi: hi, hf: hf }, function(resp){
-            if (resp && resp.ok && resp.ocupado) {
-                let msg = 'El profesor ya está asignado en este bloque.';
-                if (resp.conflictos && resp.conflictos.length) {
-                    const c = resp.conflictos[0];
-                    msg += `\n${c.nombre_materia} · ${c.grado} ${c.nombre_seccion} · Aula ${c.aula} · ${c.hora_inicio.substr(0,5)}-${c.hora_fin.substr(0,5)}`;
-                }
-                toastr.warning(msg);
-                $sel.val('');
-            }
-        }, 'json');
-    });
-
-    // Previsualización
-    $('#previsualizar').click(function() {
-        if($('#grado').val() === '' || $('#seccion').val() === '') {
-            toastr.error('Seleccione un grado y sección primero');
+    // Función para inicializar cuando la página carga
+    function inicializarFormulario() {
+        // Primero asegurar que el select existe y es correcto
+        if (!asegurarSelectSeccion()) {
+            console.error('No se pudo asegurar que el select de sección existe');
             return;
         }
         
-        // Guardar datos en sesión vía AJAX antes de mostrar preview
-        $.ajax({
-            url: 'guardar_preview.php',
-            method: 'POST',
-            data: $('form').serialize(),
-            success: function(response) {
-                $('#previewModal').modal('show');
-                $('#previewFrame').attr('src', 'previsualizar_horario.php');
-            },
-            error: function() {
-                toastr.error('Error al preparar la previsualización');
+        const gradoInicial = $('#grado').val();
+        console.log('Inicializando formulario. Grado inicial:', gradoInicial);
+        
+        if (gradoInicial && gradoInicial !== '') {
+            // Hay un grado preseleccionado, cargar secciones
+            console.log('Cargando secciones para grado:', gradoInicial);
+            cargarSeccionesPorGrado(gradoInicial);
+        } else {
+            // No hay grado seleccionado, asegurar que el select de sección esté deshabilitado
+            $('#seccion').html('<option value="">Primero seleccione un Grado</option>').prop('disabled', true);
+        }
+    }
+    
+    // Inicializar cuando el DOM esté listo
+    $(document).ready(function() {
+        console.log('DOM listo, inicializando formulario...');
+        inicializarFormulario();
+    });
+    
+    // También inicializar después de un pequeño delay por si hay otros scripts que interfieren
+    setTimeout(function() {
+        console.log('Inicialización adicional después de delay...');
+        asegurarSelectSeccion();
+        const gradoActual = $('#grado').val();
+        if (gradoActual && $('#seccion').is(':disabled')) {
+            console.log('Reintentando cargar secciones para grado:', gradoActual);
+            cargarSeccionesPorGrado(gradoActual);
+        }
+    }, 500);
+    
+    // También escuchar cambios manuales del grado
+    $('#grado').on('change', function() {
+        console.log('Grado cambió a:', $(this).val());
+        const gradoId = $(this).val();
+        cargarSeccionesPorGrado(gradoId);
+    });
+    
+    // Prevenir que el placeholder se envíe como valor válido
+    $('form').on('submit', function(e) {
+        e.preventDefault(); // Prevenir envío inmediato
+        
+        // Validar que se haya seleccionado grado y sección
+        if (!$('#grado').val() || !$('#seccion').val()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Campos requeridos',
+                text: 'Debe seleccionar un Grado y una Sección antes de guardar'
+            });
+            return false;
+        }
+        
+        // Mostrar mensaje de confirmación antes de guardar
+        Swal.fire({
+            icon: 'question',
+            title: '¿Estás seguro?',
+            text: '¿Deseas guardar este horario?',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, guardar',
+            cancelButtonText: 'No, cancelar',
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+        // Limpiar valores vacíos antes de enviar
+        $('.materia-select, .profesor-select').each(function() {
+            const $select = $(this);
+            const $selectedOption = $select.find('option:selected');
+            
+            // Si es placeholder, forzar valor vacío
+            if ($selectedOption.data('placeholder') === true || $select.val() === '') {
+                $select.val('').prop('selectedIndex', 0);
             }
+        });
+                
+                // Enviar el formulario
+                $('form')[0].submit();
+            }
+            // Si el usuario cancela, no hacer nada (el formulario ya está prevenido)
+    });
+    
+        return false;
+    });
+    
+    // Rellenar datos de prueba con profesores y materias asignadas a la sección
+    $('#rellenarPrueba').click(function() {
+        const gradoId = $('#grado').val();
+        const seccionId = $('#seccion').val();
+        
+        // Validar que haya grado y sección seleccionados
+        if (!gradoId || !seccionId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campos requeridos',
+                text: 'Debe seleccionar un Grado y una Sección antes de cargar datos de prueba'
+            });
+            return;
+        }
+        
+        // Validar que los selects de profesores estén habilitados (sección ya cargada)
+        if ($('.profesor-select').first().is(':disabled')) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sección no cargada',
+                text: 'Primero debe seleccionar una Sección para cargar los profesores disponibles'
+            });
+            return;
+        }
+        
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Cargando datos...',
+            text: 'Obteniendo profesores y materias asignadas',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Obtener profesores de la sección (ya cargados en los selects)
+        const profesoresDisponibles = [];
+        $('.profesor-select').first().find('option:not([data-placeholder])').each(function() {
+            const $option = $(this);
+            if ($option.val() && $option.val() !== '') {
+                profesoresDisponibles.push({
+                    id: $option.val(),
+                    nombre: $option.text()
+                });
+            }
+        });
+        
+        if (profesoresDisponibles.length === 0) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sin profesores',
+                text: 'No hay profesores disponibles en esta sección'
+            });
+            return;
+        }
+        
+        // Obtener materias para cada profesor y construir lista de profesores con materias
+        const profesoresConMaterias = [];
+        let profesoresProcesados = 0;
+        
+        profesoresDisponibles.forEach(function(profesor) {
+        $.ajax({
+                url: 'ajax/obtener_materias.php',
+                method: 'GET',
+                data: {
+                    id_profesor: profesor.id,
+                    id_seccion: seccionId,
+                    id_grado: gradoId
+                },
+                dataType: 'json',
+                success: function(responseMaterias) {
+                    if (responseMaterias.success && responseMaterias.data && responseMaterias.data.length > 0) {
+                        profesoresConMaterias.push({
+                            profesor: profesor,
+                            materias: responseMaterias.data
+                        });
+                    }
+                    
+                    profesoresProcesados++;
+                    
+                    // Cuando todos los profesores hayan sido procesados
+                    if (profesoresProcesados === profesoresDisponibles.length) {
+                        if (profesoresConMaterias.length === 0) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Sin materias',
+                                text: 'Los profesores de esta sección no tienen materias asignadas'
+                            });
+                            return;
+                        }
+                        
+                        // Rellenar bloques aleatoriamente
+                        const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+                        const horarios = ['07:50', '08:30', '09:10', '10:10', '10:50', '11:30'];
+                        
+                        // Función para obtener un elemento aleatorio de un array
+                        function getRandomElement(arr) {
+                            return arr[Math.floor(Math.random() * arr.length)];
+                        }
+                        
+                        // Crear lista de bloques disponibles
+                        const bloquesDisponibles = [];
+                        dias.forEach(function(dia) {
+                            horarios.forEach(function(horaInicio) {
+                                bloquesDisponibles.push({ dia: dia, horaInicio: horaInicio });
         });
     });
     
-    // Descargar PDF
-    $('#descargarPdf').click(function() {
-        window.open('generar_horario_pdf.php?' + $('form').serialize(), '_blank');
+                        // Mezclar aleatoriamente los bloques
+                        for (let i = bloquesDisponibles.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [bloquesDisponibles[i], bloquesDisponibles[j]] = [bloquesDisponibles[j], bloquesDisponibles[i]];
+                        }
+                        
+                        // Rellenar aproximadamente el 60% de los bloques
+                        const bloquesARellenar = Math.floor(bloquesDisponibles.length * 0.6);
+                        const bloquesSeleccionados = bloquesDisponibles.slice(0, bloquesARellenar);
+                        let bloquesRellenados = 0;
+                        let delay = 0;
+                        
+                        bloquesSeleccionados.forEach(function(bloque, index) {
+                            setTimeout(function() {
+                                // Seleccionar un profesor aleatorio con materias
+                                const profesorMaterias = getRandomElement(profesoresConMaterias);
+                                const materia = getRandomElement(profesorMaterias.materias);
+                                
+                                // Encontrar los selects correspondientes
+                                const $materiaSelect = $(`select[name="horario[${bloque.dia}][${bloque.horaInicio}][materia]"]`);
+                                const $profesorSelect = $(`select[name="horario[${bloque.dia}][${bloque.horaInicio}][profesor]"]`);
+                                
+                                if ($materiaSelect.length && $profesorSelect.length) {
+                                    // Primero seleccionar el profesor
+                                    $profesorSelect.val(profesorMaterias.profesor.id).trigger('change');
+                                    
+                                    // Esperar a que se carguen las materias, luego seleccionar la materia
+                                    setTimeout(function() {
+                                        $materiaSelect.val(materia.id);
+                                        bloquesRellenados++;
+                                        
+                                        // Cuando se hayan rellenado todos los bloques
+                                        if (bloquesRellenados === bloquesSeleccionados.length) {
+                                            Swal.close();
+                                            mostrarNotificacion('success', 'Éxito', `Datos de prueba cargados: ${bloquesRellenados} bloques asignados con profesores y materias de la sección`);
+                                        }
+                                    }, 800);
+                                } else {
+                                    // Si no se encontraron los selects, contar como completado de todas formas
+                                    bloquesRellenados++;
+                                    if (bloquesRellenados === bloquesSeleccionados.length) {
+                                        Swal.close();
+                                        mostrarNotificacion('success', 'Éxito', `Datos de prueba cargados: ${bloquesRellenados} bloques asignados`);
+                                    }
+                                }
+                            }, delay);
+                            
+                            delay += 100; // Espaciar las asignaciones para evitar conflictos
+                        });
+                    }
+                },
+                error: function() {
+                    profesoresProcesados++;
+                    if (profesoresProcesados === profesoresDisponibles.length) {
+                        Swal.close();
+                        if (profesoresConMaterias.length === 0) {
+                            mostrarNotificacion('error', 'Error', 'Error al obtener materias de los profesores');
+                        } else {
+                            // Continuar con los profesores que sí tienen materias
+                            // (el código de arriba ya maneja esto)
+                        }
+                    }
+                }
+            });
+        });
     });
 });
 </script>

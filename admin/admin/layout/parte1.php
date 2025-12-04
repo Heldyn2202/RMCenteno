@@ -106,6 +106,16 @@ foreach ($roles_permisos as $roles_permiso){
         }
     }
 }
+
+// Generar iniciales para el avatar
+$firstInitial = substr(ucwords($nombres_sesion_usuario), 0, 1);
+$lastInitial = substr(ucwords($apellidos_sesion_usuario), 0, 1);
+$initials = $firstInitial . $lastInitial;
+
+// Generar color consistente para el avatar
+$colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F06292', '#7986CB', '#9575CD', '#64B5F6', '#4DB6AC', '#81C784', '#FFD54F', '#FF8A65', '#A1887F'];
+$colorIndex = (ord($firstInitial) + ord($lastInitial)) % count($colors);
+$bgColor = $colors[$colorIndex];
 ?>
 
 <!DOCTYPE html>
@@ -126,7 +136,34 @@ foreach ($roles_permisos as $roles_permiso){
     <script src="<?=APP_URL;?>/public/plugins/jquery/jquery.min.js"></script>
 
     <!-- Sweetaler2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- SweetAlert2 - Usar versión local en lugar de CDN -->
+    <link rel="stylesheet" href="<?=APP_URL;?>/public/plugins/sweetalert2/sweetalert2.min.css?v=<?=time()?>">
+    <script src="<?=APP_URL;?>/public/plugins/sweetalert2/sweetalert2.all.min.js?v=<?=time()?>" onerror="
+        console.error('Error al cargar SweetAlert2 local. Intentando desde CDN...');
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css';
+        document.head.appendChild(link);
+        var script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+        document.head.appendChild(script);
+    "></script>
+    <script>
+    // Verificar que SweetAlert2 se cargó después de que la página cargue completamente
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            if (typeof Swal === 'undefined') {
+                console.error('SweetAlert2 no está disponible. Verifica que el archivo se cargó correctamente.');
+            } else {
+                console.log('SweetAlert2 cargado correctamente');
+            }
+        }, 100);
+    });
+    </script>
+    
+    <!-- Toastr para notificaciones -->
+    <link rel="stylesheet" href="<?=APP_URL;?>/public/plugins/toastr/toastr.min.css">
+    <script src="<?=APP_URL;?>/public/plugins/toastr/toastr.min.js"></script>
 
     <!-- Iconos de bootstrap -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -141,9 +178,13 @@ foreach ($roles_permisos as $roles_permiso){
             color:white;
         }
         
-        /* Estilos añadidos para la barra superior azul gradiente */
+        /* ========== COLOR PRINCIPAL DEL SISTEMA ========== */
+        /* COLOR AZUL PRINCIPAL: #0d6efd (sin degradado) */
+        /* ================================================= */
+        
+        /* Estilos añadidos para la barra superior azul */
         .navbar-info {
-            background: linear-gradient(135deg, #1e88e5, #2d5f7e ) !important;
+            background: #0d6efd !important; /* COLOR PRINCIPAL - Barra superior */
         }
         
         .navbar-info .navbar-nav .nav-link {
@@ -160,7 +201,7 @@ foreach ($roles_permisos as $roles_permiso){
         
         /* Estilos específicos para el área SIGI y menús principales */
         .brand-link {
-            background: linear-gradient(135deg, #1e88e5 0%, #2d5f7e 100%) !important;
+            background: #0d6efd !important; /* COLOR PRINCIPAL - Brand link */
             border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
             margin: -8px -8px 0 -8px !important;
             padding: 15px !important;
@@ -170,11 +211,18 @@ foreach ($roles_permisos as $roles_permiso){
             color: white !important;
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
             margin: 0 !important;
+            font-size: 1.5rem;
         }
         
+        .brand-link small {
+            color: rgba(255, 255, 255, 0.9) !important;
+            font-size: 0.85rem;
+        }
+        
+        /* ========== COLOR DEL MENÚ LATERAL ========== */
         /* User panel con fondo azul */
         .user-panel {
-            background: linear-gradient(135deg, #1e88e5 0%, #2d5f7e 100%) !important;
+            background: #0d6efd !important; /* COLOR PRINCIPAL - Panel de usuario */
             margin: 0 -8px !important;
             padding: 15px 15px 15px 15px !important;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
@@ -190,8 +238,21 @@ foreach ($roles_permisos as $roles_permiso){
             font-size: 0.85em;
         }
         
+        /* Avatar circular con iniciales */
+        .initials-circle {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            font-weight: bold;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        
+        /* ========== COLOR DE LOS CUADROS DEL SUBMENÚ ========== */
         .nav-sidebar > .nav-item > .nav-link {
-            background: linear-gradient(135deg, #1e88e5 0%, #2d5f7e 100%) !important;
+            background: #0d6efd !important; /* COLOR PRINCIPAL - Items del menú */
             color: white !important;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
             border-left: 3px solid rgba(255, 255, 255, 0.3) !important;
@@ -200,13 +261,29 @@ foreach ($roles_permisos as $roles_permiso){
         
         /* Borde blanco más intenso SOLO para el elemento activo */
         .nav-sidebar > .nav-item > .nav-link.active {
-            background: linear-gradient(135deg, #1565c0 0%, #1e4e7a 100%) !important;
+            background: #0b5ed7 !important; /* COLOR PRINCIPAL - Versión más oscura para activo */
             border-left: 8px solid #ffffff !important;
         }
         
         .nav-sidebar > .nav-item > .nav-link:hover {
-            background: linear-gradient(135deg, #1976d2 0%, #23527c 100%) !important;
+            background: #0c63e4 !important; /* COLOR PRINCIPAL - Versión intermedia para hover */
             border-left: 5px solid rgba(255, 255, 255, 0.7) !important;
+        }
+        
+        /* ========== COLOR DE LOS SUBMENÚS DESPLEGABLES ========== */
+        .nav-treeview .nav-item .nav-link {
+            background: #e9ecef !important; /* COLOR SECUNDARIO - Submenús desplegables */
+            color: #495057 !important;
+            border-left: 3px solid #dee2e6 !important;
+        }
+        
+        .nav-treeview .nav-item .nav-link.active {
+            background: #dae0e5 !important; /* COLOR SECUNDARIO - Submenús activos */
+            border-left: 8px solid #0d6efd !important; /* COLOR PRINCIPAL - Borde azul */
+        }
+        
+        .nav-treeview .nav-item .nav-link:hover {
+            background: #d1d7dc !important; /* COLOR SECUNDARIO - Submenús hover */
         }
         
         /* Ajustes para la imagen del usuario */
@@ -234,6 +311,11 @@ foreach ($roles_permisos as $roles_permiso){
         .nav-item.with-badge {
             position: relative;
         }
+
+        /* Estilo para el título cuando está oculto */
+        .navbar-brand-text.hidden-title {
+            display: none;
+        }
     </style>
 
     <!-- CHART -->
@@ -243,16 +325,28 @@ foreach ($roles_permisos as $roles_permiso){
 <body class="hold-transition sidebar-mini">
 <div class="wrapper">
 
-    <!-- Navbar -->
-    <nav class="main-header navbar navbar-expand navbar-info navbar-light">
-        <!-- Left navbar links -->
+    <!-- Navbar Unificada - TÍTULO COMPLETO EN TODAS LAS VENTANAS -->
+    <nav class="main-header navbar navbar-expand navbar-info navbar-light" style="background: linear-gradient(135deg, #0d6efd 0%, #4dabf7 100%) !important; padding: 17px 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
         <ul class="navbar-nav">
             <li class="nav-item">
-                <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars text-white"></i></a>
+                <a class="nav-link" data-widget="pushmenu" href="#" role="button">
+                    <i class="fas fa-bars text-white"></i>
+                </a>
+            </li>
+            <!-- TÍTULO COMPLETO - SE MUESTRA EN TODAS LAS VENTANAS -->
+            <li class="nav-item">
+                <div class="navbar-brand-text ml-3">
+                    <h4 class="m-0 text-white" style="font-weight: 800; text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3); font-size: 1.5rem; line-height: 1.2;">
+                        <i class="fas fa-graduation-cap mr-2"></i>Sistema Integral de Gestión de Inscripciones y Carga de Notas
+                    </h4>
+                    <small class="text-white" style="font-size: 0.95rem; font-weight: 600; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);">
+                        Panel de control administrativo - Gestión educativa integral
+                    </small>
+                </div>
             </li>
         </ul>
 
-        <!-- Right navbar links -->
+        <!-- Right navbar links - SIEMPRE VISIBLE -->
         <ul class="navbar-nav ml-auto">
             <!-- Enlace rápido al chat -->
             <li class="nav-item">
@@ -275,8 +369,8 @@ foreach ($roles_permisos as $roles_permiso){
                 <div class="dropdown-menu" aria-labelledby="account_settings" style="left: -2.5em;">
                     <h4 class="dropdown-header">
                         <div class="d-flex justify-content-center">
-                            <span class="initials-circle img-circle elevation-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 20px; background-color: #007bff; color: white;">
-                                <?php echo substr(ucwords($nombres_sesion_usuario), 0, 1) . substr(ucwords($apellidos_sesion_usuario), 0, 1); ?>
+                            <span class="initials-circle img-circle elevation-3" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 20px; background-color: <?=$bgColor;?>; color: white;">
+                                <?=$initials;?>
                             </span>
                         </div>
                         <br>
@@ -296,7 +390,6 @@ foreach ($roles_permisos as $roles_permiso){
                 </div>
             </li>
         </ul>
-        
         <script>  
             document.getElementById("logout-button").addEventListener("click", function(event) {  
                 event.preventDefault();
@@ -325,17 +418,13 @@ foreach ($roles_permisos as $roles_permiso){
         <!-- Sidebar -->
         <div class="sidebar">
             <div class="dropdown">
-                <a href="<?=APP_URL;?>/admin" class="brand-link">
-                    <h4 class="text-center p-0 m-0"><b>SIGI</b></h4>
-                    <small class="text-center"></small>
-                </a>  
-            </div>
+                
             
             <!-- Sidebar user panel (optional) -->
             <div class="user-panel mt-3 pb-3 mb-3 d-flex">
                 <div class="image">
-                    <span class="img-circle elevation-2" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; background-color: #007bff; color: white;">
-                        <?php echo substr(ucwords($nombres_sesion_usuario), 0, 1) . substr(ucwords($apellidos_sesion_usuario), 0, 1); ?>
+                    <span class="img-circle elevation-2" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; background-color: <?=$bgColor;?>; color: white;">
+                        <?=$initials;?>
                     </span>
                 </div>
                 <div class="info">
@@ -351,10 +440,6 @@ foreach ($roles_permisos as $roles_permiso){
                     // Detectar página actual de manera SIMPLE y EFECTIVA
                     $ruta_actual = $_SERVER['REQUEST_URI'];
                     $pagina_actual = basename($_SERVER['PHP_SELF']);
-                    
-                    // Mostrar información para debugging (puedes eliminar esto después)
-                    // echo "<!-- Ruta actual: " . $ruta_actual . " -->";
-                    // echo "<!-- Página actual: " . $pagina_actual . " -->";
                     
                     // Detección SIMPLIFICADA - usando solo la parte de la ruta
                     $es_inicio = ($pagina_actual == 'index.php' && strpos($ruta_actual, '/admin') !== false) || 
@@ -391,55 +476,54 @@ foreach ($roles_permisos as $roles_permiso){
                     </li>
                     
         <!-- =================================================== -->
-<!-- MÓDULO DE NOTAS (DOCENTES + ADMINISTRADORES) -->
-<!-- =================================================== -->
-<?php if (
-    (isset($_SESSION['es_docente']) && $_SESSION['es_docente']) 
-    || (isset($_SESSION['rol_id']) && ($_SESSION['rol_id'] == 1 || $_SESSION['rol_id'] == 2))
-): ?>
-<li class="nav-item">
-    <a href="#" class="nav-link <?= $es_notas ? 'active' : '' ?>">
-        <i class="nav-icon fas fa-chalkboard-teacher"></i>
-        <p>
-            Módulo de Notas
-            <i class="right fas fa-angle-left"></i>
-        </p>
-    </a>
-    <ul class="nav nav-treeview">
-        <li class="nav-item">
-            <a href="<?=APP_URL;?>/admin/notas/carga_notas_seccion.php" class="nav-link <?= (strpos($ruta_actual, 'carga_notas_seccion') !== false) ? 'active' : '' ?>">
-                <i class="nav-icon fas fa-users"></i>
-                <p>Carga Masiva por Sección</p>
+        <!-- MÓDULO DE NOTAS Y HORARIOS UNIFICADO -->
+        <!-- =================================================== -->
+        <?php if (
+            (isset($_SESSION['es_docente']) && $_SESSION['es_docente']) 
+            || (isset($_SESSION['rol_id']) && ($_SESSION['rol_id'] == 1 || $_SESSION['rol_id'] == 2))
+        ): ?>
+        <li class="nav-item <?= (strpos($ruta_actual, 'notas') !== false) ? 'menu-open' : '' ?>">
+            <a href="#" class="nav-link <?= $es_notas ? 'active' : '' ?>">
+                <i class="nav-icon fas fa-chalkboard-teacher"></i>
+                <p>
+                    Módulo de Notas y Horarios
+                    <i class="right fas fa-angle-left"></i>
+                </p>
             </a>
+            <ul class="nav nav-treeview">
+                <li class="nav-item">
+                    <a href="<?=APP_URL;?>/admin/notas/carga_notas_seccion.php" class="nav-link <?= (strpos($ruta_actual, 'carga_notas_seccion') !== false) ? 'active' : '' ?>">
+                        <i class="nav-icon fas fa-users"></i>
+                        <p>Carga Masiva por Sección</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?=APP_URL;?>/admin/notas/crear_horarios.php" class="nav-link <?= (strpos($ruta_actual, 'crear_horarios') !== false) ? 'active' : '' ?>">
+                        <i class="nav-icon fas fa-calendar-plus"></i>
+                        <p>Crear Horarios</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?=APP_URL;?>/admin/notas/horarios_consolidados.php" class="nav-link <?= (strpos($ruta_actual, 'horarios_consolidados') !== false) ? 'active' : '' ?>">
+                        <i class="nav-icon fas fa-calendar-check"></i>
+                        <p>Horarios Consolidados</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?=APP_URL;?>/admin/notas/ver_progreso_notas.php" class="nav-link <?= (strpos($ruta_actual, 'ver_progreso_notas') !== false) ? 'active' : '' ?>">
+                        <i class="nav-icon fas fa-chart-line"></i>
+                        <p>Progreso de Notas</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?=APP_URL;?>/admin/notas/historial_notas.php" class="nav-link <?= (strpos($ruta_actual, 'historial_notas') !== false) ? 'active' : '' ?>">
+                        <i class="nav-icon fas fa-history"></i>
+                        <p>Historial de Cambios</p>
+                    </a>
+                </li>
+            </ul>
         </li>
-        <li class="nav-item">
-            <a href="<?=APP_URL;?>/admin/notas/notas_estudiantes.php" class="nav-link <?= (strpos($ruta_actual, 'notas_estudiantes') !== false) ? 'active' : '' ?>">
-                <i class="nav-icon fas fa-user-edit"></i>
-                <p>Gestión Individual</p>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?=APP_URL;?>/admin/notas/generar_boleta.php" class="nav-link <?= (strpos($ruta_actual, 'generar_boleta') !== false) ? 'active' : '' ?>">
-                <i class="nav-icon fas fa-file-pdf"></i>
-                <p>Generar Boletas</p>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="<?=APP_URL;?>/admin/notas/historial_notas.php" class="nav-link <?= (strpos($ruta_actual, 'historial_notas') !== false) ? 'active' : '' ?>">
-                <i class="nav-icon fas fa-history"></i>
-                <p>Historial de Cambios</p>
-            </a>
-        </li>
-        <!-- 🔹 Nuevo Submenú: Progreso de Notas -->
-        <li class="nav-item">
-            <a href="<?=APP_URL;?>/admin/notas/ver_progreso_notas.php" class="nav-link <?= (strpos($ruta_actual, 'ver_progreso_notas') !== false) ? 'active' : '' ?>">
-                <i class="nav-icon fas fa-chart-line"></i>
-                <p>Progreso de Notas</p>
-            </a>
-        </li>
-    </ul>
-</li>
-<?php endif; ?>
+        <?php endif; ?>
 
 
 
@@ -502,13 +586,6 @@ foreach ($roles_permisos as $roles_permiso){
                                class="nav-link <?= $es_reportes ? 'active' : '' ?>">
                                 <i class="nav-icon fas fa-chart-bar"></i>
                                 <p>Reportes</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="<?=APP_URL;?>/admin/notas" 
-                               class="nav-link <?= $es_notas ? 'active' : '' ?>">
-                                <i class="nav-icon fas fa-book"></i>
-                                <p>Notas y Horarios</p>
                             </a>
                         </li>
                         <li class="nav-item">

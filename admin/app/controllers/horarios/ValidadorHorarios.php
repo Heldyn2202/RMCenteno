@@ -6,6 +6,7 @@
 class ValidadorHorarios {
     private $pdo;
     private $errores;
+    private $advertencias; // Advertencias que no bloquean el guardado
     private $gestion_activa;
     
     // Configuración de horarios permitidos (7:00 AM - 7:00 PM)
@@ -19,6 +20,7 @@ class ValidadorHorarios {
     public function __construct($pdo) {
         $this->pdo = $pdo;
         $this->errores = [];
+        $this->advertencias = [];
         
         // Obtener gestión activa
         $stmt = $this->pdo->query("SELECT * FROM gestiones WHERE estado = 1 ORDER BY desde DESC LIMIT 1");
@@ -32,7 +34,7 @@ class ValidadorHorarios {
         $this->errores = [];
         
         // 1. VALIDACIONES DE ESTRUCTURA ACADÉMICA
-        $this->validarExistenciaMaterias($horario_data, $id_grado);
+        $this->validarExistenciaMaterias($horario_data, $id_grado, $id_seccion);
         $this->validarCoherenciaSeccionGrado($id_seccion, $id_grado, $id_gestion);
         
         // 2. VALIDACIONES DE ASIGNACIÓN DE RECURSOS
@@ -52,11 +54,12 @@ class ValidadorHorarios {
     
     /**
      * 1. Validar que las materias existan y pertenezcan al grado
+     * IMPORTANTE: También considera materias asignadas a profesores en asignaciones_profesor
      */
-    private function validarExistenciaMaterias($horario_data, $id_grado) {
+    private function validarExistenciaMaterias($horario_data, $id_grado, $id_seccion) {
         if (empty($horario_data)) return;
         
-        // Obtener materias válidas para el grado
+        // Obtener materias válidas para el grado (directamente o a través de grados_materias)
         $stmt = $this->pdo->prepare("
             SELECT DISTINCT m.id_materia, m.nombre_materia 
             FROM materias m 
@@ -65,21 +68,78 @@ class ValidadorHorarios {
             AND (m.id_grado = :id_grado OR gm.id_grado = :id_grado)
         ");
         $stmt->execute([':id_grado' => $id_grado]);
-        $materias_validas = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $materias_validas_por_grado = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Obtener materias válidas porque están asignadas a profesores en esta sección
+        // Si una materia está en asignaciones_profesor para esta sección, es válida
+        $materias_validas_por_asignacion = [];
+        try {
+            $stmtAsign = $this->pdo->prepare("
+                SELECT DISTINCT ap.id_materia
+                FROM asignaciones_profesor ap
+                INNER JOIN materias m ON m.id_materia = ap.id_materia
+                WHERE ap.id_seccion = :id_seccion
+                  AND ap.estado = 1
+                  AND m.estado = 1
+            ");
+            $stmtAsign->execute([':id_seccion' => $id_seccion]);
+            $materias_validas_por_asignacion = $stmtAsign->fetchAll(PDO::FETCH_COLUMN);
+        } catch (Exception $e) {
+            // Si la tabla asignaciones_profesor no existe, continuar sin error
+        }
+        
+        // Combinar ambas listas de materias válidas
+        $materias_validas = array_unique(array_merge($materias_validas_por_grado, $materias_validas_por_asignacion));
         
         foreach ($horario_data as $dia => $bloques) {
             foreach ($bloques as $hora_inicio => $bloque) {
                 $id_materia = $bloque['materia'] ?? null;
+                $id_profesor = $bloque['profesor'] ?? null;
+                
                 if ($id_materia && !in_array($id_materia, $materias_validas)) {
-                    // Verificar si la materia existe
-                    $stmt_mat = $this->pdo->prepare("SELECT nombre_materia FROM materias WHERE id_materia = ? AND estado = 1");
+                    // Verificar si la materia existe primero
+                    $stmt_mat = $this->pdo->prepare("SELECT nombre_materia, estado FROM materias WHERE id_materia = ?");
                     $stmt_mat->execute([$id_materia]);
                     $materia = $stmt_mat->fetch(PDO::FETCH_ASSOC);
                     
-                    if ($materia) {
-                        $this->agregarError("La materia '{$materia['nombre_materia']}' no corresponde al grado seleccionado ($dia, $hora_inicio)");
-                    } else {
+                    if (!$materia) {
                         $this->agregarError("La materia seleccionada no existe en el sistema ($dia, $hora_inicio)");
+                        continue; // Saltar al siguiente bloque
+                    }
+                    
+                    if ($materia['estado'] != 1) {
+                        $this->agregarError("La materia '{$materia['nombre_materia']}' está inactiva ($dia, $hora_inicio)");
+                        continue;
+                    }
+                    
+                    // Verificar si la materia está asignada a este profesor en esta sección
+                    $es_valida_por_asignacion = false;
+                    if ($id_profesor && $id_profesor > 0) {
+                        try {
+                            $stmtCheck = $this->pdo->prepare("
+                                SELECT COUNT(*) as total
+                                FROM asignaciones_profesor ap
+                                WHERE ap.id_profesor = :id_profesor
+                                  AND ap.id_materia = :id_materia
+                                  AND ap.id_seccion = :id_seccion
+                                  AND ap.estado = 1
+                            ");
+                            $stmtCheck->execute([
+                                ':id_profesor' => $id_profesor,
+                                ':id_materia' => $id_materia,
+                                ':id_seccion' => $id_seccion
+                            ]);
+                            $result = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+                            $es_valida_por_asignacion = ($result && $result['total'] > 0);
+                        } catch (Exception $e) {
+                            // Si hay error, continuar sin considerar asignaciones
+                        }
+                    }
+                    
+                    if (!$es_valida_por_asignacion) {
+                        // La materia existe pero no está asignada al profesor en esta sección
+                        // o no corresponde al grado - generar error
+                        $this->agregarError("La materia '{$materia['nombre_materia']}' no corresponde al grado seleccionado o no está asignada al profesor en esta sección ($dia, $hora_inicio)");
                     }
                 }
             }
@@ -453,9 +513,13 @@ class ValidadorHorarios {
     
     /**
      * 10. Validar que todas las materias obligatorias del grado estén asignadas
+     * NOTA: Esta validación genera ADVERTENCIAS (no errores) para permitir guardar el horario
+     * Por ahora, solo valida materias que están directamente asignadas al grado o en grados_materias
      */
     private function validarHorarioCompletoPorMaterias($horario_data, $id_grado) {
-        // Obtener materias obligatorias del grado
+        // Obtener materias obligatorias del grado (directamente o a través de grados_materias)
+        // NOTA: No consideramos asignaciones_profesor aquí porque las materias obligatorias
+        // deben estar definidas en la estructura del grado, no solo en asignaciones
         $stmt = $this->pdo->prepare("
             SELECT DISTINCT m.id_materia, m.nombre_materia 
             FROM materias m
@@ -478,9 +542,10 @@ class ValidadorHorarios {
         }
         
         // Verificar que todas las materias obligatorias estén asignadas
+        // IMPORTANTE: Esto genera ADVERTENCIAS, no errores, para permitir guardar
         foreach ($materias_obligatorias as $materia) {
             if (!in_array($materia['id_materia'], $materias_asignadas)) {
-                $this->agregarError(
+                $this->agregarAdvertencia(
                     "Materia obligatoria no asignada: '{$materia['nombre_materia']}' " .
                     "(debe estar al menos una vez en el horario semanal)"
                 );
@@ -489,10 +554,17 @@ class ValidadorHorarios {
     }
     
     /**
-     * Obtener errores de validación
+     * Obtener errores de validación (bloquean el guardado)
      */
     public function getErrores() {
         return $this->errores;
+    }
+    
+    /**
+     * Obtener advertencias (no bloquean el guardado)
+     */
+    public function getAdvertencias() {
+        return $this->advertencias;
     }
     
     /**
@@ -503,10 +575,24 @@ class ValidadorHorarios {
     }
     
     /**
-     * Agregar error
+     * Verificar si hay advertencias
+     */
+    public function tieneAdvertencias() {
+        return !empty($this->advertencias);
+    }
+    
+    /**
+     * Agregar error (bloquea el guardado)
      */
     private function agregarError($mensaje) {
         $this->errores[] = $mensaje;
+    }
+    
+    /**
+     * Agregar advertencia (no bloquea el guardado)
+     */
+    private function agregarAdvertencia($mensaje) {
+        $this->advertencias[] = $mensaje;
     }
 }
 
