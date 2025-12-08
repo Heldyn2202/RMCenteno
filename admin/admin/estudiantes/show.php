@@ -199,7 +199,7 @@ include ('../../app/controllers/estudiantes/datos_del_estudiante.php');
                                 <div class="form-group">
                                     <label class="control-label">Estatus</label>
                                     <div class="form-control-plaintext p-3 bg-light rounded">
-                                        <?php if (strtolower($estudiante['estatus']) == "activo") : ?>  
+                                        <?php if (strtolower($estatus) == "activo") : ?>  
                                             <span class="badge badge-success p-2">
                                                 <i class="fas fa-check-circle mr-1"></i> ACTIVO
                                             </span>  
@@ -217,10 +217,7 @@ include ('../../app/controllers/estudiantes/datos_del_estudiante.php');
                                     <label class="control-label">Representante</label>
                                     <div class="form-control-plaintext p-3 bg-light rounded">
                                         <i class="fas fa-user-tie mr-2 text-primary"></i>
-                                        <?php
-                                            // Aquí puedes agregar el nombre del representante si lo tienes disponible
-                                            echo "Representante Asociado";
-                                        ?>
+                                        <?=$representante_nombre;?>
                                     </div>
                                 </div>
                             </div>

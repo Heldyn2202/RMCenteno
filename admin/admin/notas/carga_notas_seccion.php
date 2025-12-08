@@ -1113,10 +1113,21 @@ function limpiarNota(button, idEstudiante) {
     // Primero verificar si el estudiante está en revisión o pendientes
     const fila = button.closest('tr');
     const enRevision = fila && fila.getAttribute('data-en-revision') === '1';
-    const enPendiente = fila && fila.getAttribute('data-en-pendiente') === '1';
+    const enPendientes = fila && fila.getAttribute('data-en-pendientes') === '1';
     
-    if (enRevision || enPendiente) {
-        const tipo = enRevision ? 'revisión' : 'materias pendientes';
+    if (enRevision || enPendientes) {
+        // Determinar el tipo correcto para el mensaje
+        let tipo = '';
+        let mensajeTipo = '';
+        
+        if (enRevision) {
+            tipo = 'revisión';
+            mensajeTipo = 'revisión';
+        } else if (enPendientes) {
+            tipo = 'materias pendientes';
+            mensajeTipo = 'materias pendientes';
+        }
+        
         const nombreEstudiante = fila.querySelector('.nombre-estudiante')?.textContent || 'el estudiante';
         const cedula = fila.querySelector('.cedula-estudiante')?.textContent || '';
         
@@ -1134,8 +1145,9 @@ function limpiarNota(button, idEstudiante) {
                         <div class="col-8">${nombreEstudiante}</div>
                     </div>
                     <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i> No puede modificar la nota porque está en ${tipo}.
+                        <i class="fas fa-exclamation-triangle"></i> Esta nota no se puede modificar porque el estudiante ya está en proceso de revisión o materia pendiente.
                     </div>
+                    ${enRevision ? `<div class="mt-3"><strong>Acción requerida:</strong><br>Para gestionar esta situación, diríjase a:<br><strong>Recuperaciones → Gestión de Revisión</strong></div>` : ''}
                 </div>
             `,
             confirmButtonText: 'Entendido',
@@ -1365,4 +1377,4 @@ function confirmarGuardado() {
         }
     });
 }
-</script>
+</script> 

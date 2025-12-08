@@ -6,11 +6,20 @@ include ('../../app/config.php');
 $id_estudiante = isset($_GET['id']) ? intval($_GET['id']) : 0;  
 
 // Consulta para obtener el estudiante específico por ID, incluyendo el id_representante
-$sql_estudiantes = "SELECT id_estudiante, tipo_cedula, cedula, nombres, apellidos, fecha_nacimiento, genero, correo_electronico, direccion, numeros_telefonicos, estatus, posicion_hijo, cedula_escolar, id_representante, tipo_discapacidad FROM estudiantes WHERE id_estudiante = :id";  
+$sql_estudiantes = "SELECT e.id_estudiante, e.tipo_cedula, e.cedula, e.nombres, e.apellidos, 
+                           e.fecha_nacimiento, e.genero, e.correo_electronico, e.direccion, 
+                           e.numeros_telefonicos, e.estatus, e.posicion_hijo, e.cedula_escolar, 
+                           e.id_representante, e.tipo_discapacidad, r.nombres AS rep_nombres, 
+                           r.apellidos AS rep_apellidos
+                    FROM estudiantes e
+                    LEFT JOIN representantes r ON e.id_representante = r.id_representante
+                    WHERE e.id_estudiante = :id";  
+                    
 $query_estudiantes = $pdo->prepare($sql_estudiantes);  
 $query_estudiantes->bindParam(':id', $id_estudiante, PDO::PARAM_INT);  
 $query_estudiantes->execute();  
-$estudiante = $query_estudiantes->fetch(PDO::FETCH_ASSOC); // Cambiado a fetch para obtener un solo registro  
+$estudiante = $query_estudiantes->fetch(PDO::FETCH_ASSOC);
+
 if ($estudiante) {  
     // Asignar los valores a las variables  
     $tipo_cedula = $estudiante['tipo_cedula'];  
@@ -25,8 +34,15 @@ if ($estudiante) {
     $estatus = $estudiante['estatus'];  
     $posicion_hijo = $estudiante['posicion_hijo'];  
     $cedula_escolar = $estudiante['cedula_escolar'] ?? '';  
-    $id_representante = $estudiante['id_representante']; // Ahora puedes acceder al id_representante
+    $id_representante = $estudiante['id_representante'];
     $tipo_discapacidad = $estudiante['tipo_discapacidad']; 
+    
+    // Obtener nombre del representante
+    if (!empty($estudiante['rep_nombres']) && !empty($estudiante['rep_apellidos'])) {
+        $representante_nombre = $estudiante['rep_nombres'] . " " . $estudiante['rep_apellidos'];
+    } else {
+        $representante_nombre = "No asignado";
+    }
   
 } else {  
     // Manejo de error si no se encuentra el estudiante  
@@ -35,6 +51,4 @@ if ($estudiante) {
     header('Location: ' . APP_URL . '/admin/estudiantes/Lista_de_estudiante.php');  
     exit();  
 }  
-?>  
-
-
+?>

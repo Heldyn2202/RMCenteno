@@ -15,7 +15,7 @@ try {
     $tipo       = $_POST['tipo'] ?? null;
     $notas      = $_POST['nota'] ?? [];
     $intentos   = $_POST['intento'] ?? [];
-    $observaciones = $_POST['observaciones'] ?? []; // ahora con key 'observaciones'
+    $observaciones = $_POST['observaciones'] ?? [];
 
     if (!$id_seccion || !$id_materia || !$tipo) {
         throw new Exception('Faltan datos obligatorios.');
@@ -48,7 +48,7 @@ try {
     $aprobados = [];
     $reprobados = [];
     $movidos_a_pendiente = [];
-    $aplazados = []; // repite curso (pendiente aplazado)
+    $aplazados = [];
     $guardados_ids = [];
 
     // Preparar consultas
@@ -63,13 +63,14 @@ try {
     ";
     $stmt_check = $pdo->prepare($sql_check);
 
-    // Insert en recuperaciones: asegurarse que la columna se llama 'observaciones'
+    // Insert en recuperaciones
     $sql_insert = "
         INSERT INTO recuperaciones (id_estudiante, id_materia, id_seccion, tipo, intento, calificacion, fecha_registro, observaciones)
         VALUES (:id_estudiante, :id_materia, :id_seccion, :tipo, :intento, :nota, :fecha, :observaciones)
     ";
     $stmt_insert = $pdo->prepare($sql_insert);
 
+    // Solo preparar esta consulta si NO es revisión
     $sql_upsert_nota = "
         INSERT INTO notas_estudiantes (id_estudiante, id_materia, id_lapso, calificacion, observaciones)
         VALUES (:id_estudiante, :id_materia, :id_lapso, :nota, :observaciones)
@@ -90,7 +91,7 @@ try {
     ";
     $stmt_update_pend_aplazado = $pdo->prepare($sql_update_pend_aplazado);
 
-    // Para obtener nombre del estudiante (para mensajes)
+    // Para obtener nombre del estudiante
     $stmt_nombre = $pdo->prepare("SELECT CONCAT(nombres, ' ', apellidos) AS nombre FROM estudiantes WHERE id_estudiante = :id_estudiante LIMIT 1");
 
     foreach ($notas as $id_estudiante => $nota_raw) {
@@ -115,7 +116,7 @@ try {
         ]);
         if ($stmt_check->fetchColumn() > 0) continue;
 
-        // Insertar intento (con observaciones)
+        // Insertar intento en recuperaciones (siempre se hace)
         $stmt_insert->execute([
             ':id_estudiante' => $id_estudiante,
             ':id_materia' => $id_materia,
@@ -130,14 +131,8 @@ try {
         // Lógica de aprobación y transición
         if ($tipo === 'revision') {
             if ($nota >= 10) {
-                // Aprueba Revisión: actualizar nota definitiva del lapso (usamos id_lapso recibido)
-                $stmt_upsert_nota->execute([
-                    ':id_estudiante' => $id_estudiante,
-                    ':id_materia' => $id_materia,
-                    ':id_lapso' => $id_lapso,
-                    ':nota' => $nota,
-                    ':observaciones' => ($obs_text !== '' ? $obs_text : 'Aprobado en revisión')
-                ]);
+                // NOTA: Ya NO actualizamos la tabla notas_estudiantes para revisiones
+                // Solo registramos en recuperaciones y marcamos como aprobado
                 $aprobados[] = $id_estudiante;
             } else {
                 // Reprobó en este intento
@@ -206,7 +201,7 @@ try {
     };
 
     $aprobados_nombres = $get_names($aprobados);
-    $reprobados_nombres = $get_names(array_diff($reprobados, $movidos_a_pendiente, $aplazados)); // reprobados que no pasaron a otra categoría
+    $reprobados_nombres = $get_names(array_diff($reprobados, $movidos_a_pendiente, $aplazados));
     $movidos_nombres = $get_names($movidos_a_pendiente);
     $aplazados_nombres = $get_names($aplazados);
 

@@ -44,11 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['es_docente'] = true;
                         $_SESSION['especialidad'] = $profesor['especialidad'];
                         
-                        $_SESSION['mensaje'] = "👨‍🏫 Bienvenido Prof. " . $profesor['nombres'] . " al Módulo de Notas";  
+                        $_SESSION['mensaje'] = "👨‍🏫 Bienvenido Prof. " . $profesor['nombres'] . " ";  
                         $_SESSION['icono'] = "success";  
                         
                         // Redirigir directamente al módulo de notas
-                        header('Location:' . APP_URL . "/admin/notas/carga_notas_seccion.php");
+                        header('Location:' . APP_URL . "/admin");
                         exit;  
                     } else {
                         // Si es docente pero no está en la tabla profesores
