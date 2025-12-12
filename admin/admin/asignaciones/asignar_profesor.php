@@ -15,22 +15,31 @@ $stmt->execute([$id_profesor]);
 $prof = $stmt->fetch(PDO::FETCH_ASSOC);
 
 // Listas
+// Nota: ordenamos por g.id_grado para asegurar el orden natural (1er año, 2do, ...) y por nombre de sección (A, B, C...)
 $secciones = $pdo->query("
-    SELECT s.id_seccion, CONCAT(g.grado, ' - ', s.nombre_seccion) AS nombre_seccion, g.grado AS grado_text
+    SELECT s.id_seccion, s.nombre_seccion, g.grado AS grado_text
     FROM secciones s
     INNER JOIN grados g ON s.id_grado = g.id_grado
     WHERE s.estado = 1
-    ORDER BY g.grado, s.nombre_seccion
+    ORDER BY g.id_grado, s.nombre_seccion
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+// Materias (sin cambios)
 $materias = $pdo->query("SELECT id_materia, nombre_materia FROM materias WHERE estado = 1 ORDER BY nombre_materia")->fetchAll(PDO::FETCH_ASSOC);
 
-$gestiones = $pdo->query("
+// Gestión activa: tomamos la gestión activa más reciente (según tu condición de "estado = 1")
+$gestion_activa = $pdo->query("
     SELECT id_gestion, CONCAT('Periodo ', YEAR(desde), ' - ', YEAR(hasta)) AS periodo
     FROM gestiones
     WHERE estado = 1
     ORDER BY desde DESC
-")->fetchAll(PDO::FETCH_ASSOC);
+    LIMIT 1
+")->fetch(PDO::FETCH_ASSOC);
+
+if (!$gestion_activa) {
+    // Manejo simple si no hay gestión activa: evitar que el formulario se rompa
+    $gestion_activa = ['id_gestion' => '', 'periodo' => 'No hay período activo'];
+}
 
 // Asignaciones actuales
 $sql_asig = "
@@ -139,8 +148,7 @@ foreach ($asignaciones_actuales as $a) {
                     $seccionesAgrupadas = [];
                     foreach ($secciones as $s) {
                         $grado = $s['grado_text'];
-                        $partes = explode(' - ', $s['nombre_seccion']);
-                        $nombreSeccion = isset($partes[1]) ? trim($partes[1]) : trim($partes[0]);
+                        $nombreSeccion = trim($s['nombre_seccion']);
                         $seccionesAgrupadas[$grado][] = [
                             'id_seccion' => $s['id_seccion'],
                             'nombre_seccion' => $nombreSeccion
@@ -173,13 +181,10 @@ foreach ($asignaciones_actuales as $a) {
                 </div>
 
                 <div class="col-md-3">
-                  <label><strong>Gestión</strong></label>
-                  <select name="id_gestion[]" class="form-control" required>
-                    <option value="">Seleccione</option>
-                    <?php foreach ($gestiones as $g): ?>
-                      <option value="<?= $g['id_gestion'] ?>"><?= htmlspecialchars($g['periodo']) ?></option>
-                    <?php endforeach; ?>
-                  </select>
+                  <label><strong>Gestión (activa)</strong></label>
+                  <!-- Gestión ahora se toma automáticamente: campo oculto con el id y campo de solo lectura para mostrar el periodo -->
+                  <input type="hidden" name="id_gestion[]" value="<?= htmlspecialchars($gestion_activa['id_gestion']) ?>">
+                  <input type="text" class="form-control" value="<?= htmlspecialchars($gestion_activa['periodo']) ?>" readonly>
                 </div>
 
                 <div class="col-md-1 text-center">
@@ -229,13 +234,9 @@ foreach ($asignaciones_actuales as $a) {
               </div>
 
               <div class="col-md-3">
-                <label><strong>Gestión</strong></label>
-                <select name="id_gestion[]" class="form-control" required>
-                  <option value="">Seleccione</option>
-                  <?php foreach ($gestiones as $g): ?>
-                    <option value="<?= $g['id_gestion'] ?>"><?= htmlspecialchars($g['periodo']) ?></option>
-                  <?php endforeach; ?>
-                </select>
+                <label><strong>Gestión (activa)</strong></label>
+                <input type="hidden" name="id_gestion[]" value="<?= htmlspecialchars($gestion_activa['id_gestion']) ?>">
+                <input type="text" class="form-control" value="<?= htmlspecialchars($gestion_activa['periodo']) ?>" readonly>
               </div>
 
               <div class="col-md-1 text-center">
@@ -331,7 +332,8 @@ $(function(){
 
     filas.each(function(i){
       var seccion = $(this).find('select[name="id_seccion[]"]').val();
-      var gestion = $(this).find('select[name="id_gestion[]"]').val();
+      // ahora la gestión es un input hidden por fila
+      var gestion = $(this).find('input[name="id_gestion[]"]').val();
       var materias = $(this).find('input[type="checkbox"]:checked').map(function(){ return $(this).val(); }).get();
 
       // Si las checkboxes no tienen value (no se les puso), usamos data-mat-id como value

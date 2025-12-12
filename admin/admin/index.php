@@ -20,6 +20,40 @@ function getPeriodoEscolarActivo($pdo) {
     return $stmt->fetch(PDO::FETCH_ASSOC);  
 }  
 
+function getInscripcionesByGestion($pdo, $id_gestion) {  
+    $sql = "SELECT * FROM inscripciones WHERE id_gestion = :id_gestion";  
+    $stmt = $pdo->prepare($sql);  
+    $stmt->bindParam(':id_gestion', $id_gestion, PDO::PARAM_INT);  
+    $stmt->execute();  
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);  
+}
+
+// Consultas para estudiantes registrados pero no inscritos
+function getEstudiantesNoInscritos($pdo, $id_gestion_activa) {
+    $sql = "SELECT e.* 
+            FROM estudiantes e 
+            LEFT JOIN inscripciones i ON e.id_estudiante = i.id_estudiante AND i.id_gestion = :id_gestion
+            WHERE e.estatus = 'activo' AND i.id IS NULL";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':id_gestion', $id_gestion_activa, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Consulta para inscripciones por año/grado
+function getInscripcionesPorGrado($pdo, $id_gestion_activa) {
+    $sql = "SELECT g.grado, COUNT(i.id) as total
+            FROM inscripciones i 
+            JOIN grados g ON i.grado = g.id_grado 
+            WHERE i.id_gestion = :id_gestion 
+            GROUP BY g.grado 
+            ORDER BY g.grado";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':id_gestion', $id_gestion_activa, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 // FUNCIÓN AUXILIAR: Contar calificaciones en un lapso específico
 function contarCalificacionesEnLapso($pdo, $id_profesor, $id_gestion, $id_lapso) {
     $sql = "SELECT COUNT(*) as total
@@ -121,162 +155,15 @@ function getLapsoActualSecuencial($pdo, $id_profesor, $id_gestion) {
     ];
 }
 
-// FUNCIÓN PARA OBTENER HORARIO SEMANAL DEL PROFESOR
-function getHorarioProfesor($pdo, $id_profesor, $id_gestion) {
-    try {
-        // Obtener las materias y secciones asignadas al profesor
-        $sql_asignaciones = "SELECT DISTINCT ap.id_materia, ap.id_seccion, 
-                            m.nombre_materia, s.nombre_seccion, g.grado
-                            FROM asignaciones_profesor ap
-                            JOIN materias m ON ap.id_materia = m.id_materia
-                            JOIN secciones s ON ap.id_seccion = s.id_seccion
-                            JOIN grados g ON s.id_grado = g.id_grado
-                            WHERE ap.id_profesor = :id_profesor 
-                            AND ap.estado = 1
-                            AND ap.id_gestion = :id_gestion";
-        
-        $stmt = $pdo->prepare($sql_asignaciones);
-        $stmt->bindParam(':id_profesor', $id_profesor, PDO::PARAM_INT);
-        $stmt->bindParam(':id_gestion', $id_gestion, PDO::PARAM_INT);
-        $stmt->execute();
-        $asignaciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        if (empty($asignaciones)) {
-            return [];
-        }
-        
-        $horario_completo = [];
-        
-        // Para cada asignación, buscar el horario en la tabla horarios
-        foreach ($asignaciones as $asignacion) {
-            $id_seccion = $asignacion['id_seccion'];
-            $id_grado = $asignacion['id_grado'] ?? null;
-            
-            // Buscar horarios para esta sección en la gestión actual
-            $sql_horario = "SELECT h.*, g.grado, s.nombre_seccion,
-                           DATE_FORMAT(h.fecha_inicio, '%H:%i') as hora_inicio_24,
-                           DATE_FORMAT(h.fecha_inicio, '%h:%i %p') as hora_inicio_12,
-                           DATE_FORMAT(h.fecha_fin, '%H:%i') as hora_fin_24,
-                           DATE_FORMAT(h.fecha_fin, '%h:%i %p') as hora_fin_12,
-                           DAYOFWEEK(h.fecha_inicio) as dia_numero,
-                           DAYNAME(h.fecha_inicio) as dia_nombre
-                           FROM horarios h
-                           JOIN grados g ON h.id_grado = g.id_grado
-                           JOIN secciones s ON h.id_seccion = s.id_seccion
-                           WHERE h.id_seccion = :id_seccion 
-                           AND h.id_gestion = :id_gestion
-                           AND h.estado = 1
-                           ORDER BY FIELD(DAYOFWEEK(h.fecha_inicio), 2,3,4,5,6,7,1), h.fecha_inicio";
-            
-            $stmt = $pdo->prepare($sql_horario);
-            $stmt->bindParam(':id_seccion', $id_seccion, PDO::PARAM_INT);
-            $stmt->bindParam(':id_gestion', $id_gestion, PDO::PARAM_INT);
-            $stmt->execute();
-            $horarios_seccion = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            if (!empty($horarios_seccion)) {
-                foreach ($horarios_seccion as $horario) {
-                    // Mapear número de día a nombre en español
-                    $dias_ingles_espanol = [
-                        'Monday' => 'Lunes',
-                        'Tuesday' => 'Martes',
-                        'Wednesday' => 'Miércoles',
-                        'Thursday' => 'Jueves',
-                        'Friday' => 'Viernes',
-                        'Saturday' => 'Sábado',
-                        'Sunday' => 'Domingo'
-                    ];
-                    
-                    $dia_nombre_ingles = $horario['dia_nombre'];
-                    $dia_nombre = $dias_ingles_espanol[$dia_nombre_ingles] ?? $dia_nombre_ingles;
-                    $dia_numero = $horario['dia_numero'];
-                    
-                    // Ajustar para que Lunes sea 1, Martes 2, etc.
-                    $dia_ajustado = ($dia_numero == 1) ? 7 : $dia_numero - 1;
-                    
-                    $horario_completo[] = [
-                        'seccion' => $asignacion['nombre_seccion'],
-                        'grado' => $asignacion['grado'],
-                        'materia' => $asignacion['nombre_materia'],
-                        'dia_nombre' => $dia_nombre,
-                        'dia_numero' => $dia_ajustado,
-                        'hora_inicio_24' => $horario['hora_inicio_24'],
-                        'hora_inicio_12' => $horario['hora_inicio_12'],
-                        'hora_fin_24' => $horario['hora_fin_24'],
-                        'hora_fin_12' => $horario['hora_fin_12'],
-                        'aula' => $horario['aula'] ?? 'Sin aula',
-                        'fecha_inicio' => $horario['fecha_inicio'],
-                        'fecha_fin' => $horario['fecha_fin']
-                    ];
-                }
-            }
-        }
-        
-        return $horario_completo;
-        
-    } catch (PDOException $e) {
-        error_log("Error en getHorarioProfesor: " . $e->getMessage());
-        return [];
-    }
-}
-
-// FUNCIÓN PARA OBTENER HORARIO POR DÍA
-function getHorarioPorDia($horario_completo) {
-    $dias_ordenados = [
-        1 => 'Lunes',
-        2 => 'Martes',
-        3 => 'Miércoles',
-        4 => 'Jueves',
-        5 => 'Viernes',
-        6 => 'Sábado',
-        7 => 'Domingo'
-    ];
-    
-    $horario_por_dia = [];
-    
-    // Inicializar todos los días
-    foreach ($dias_ordenados as $num => $nombre) {
-        $horario_por_dia[$num] = [
-            'nombre' => $nombre,
-            'clases' => []
-        ];
-    }
-    
-    // Agrupar clases por día
-    foreach ($horario_completo as $horario) {
-        $dia_num = $horario['dia_numero'];
-        
-        if (isset($horario_por_dia[$dia_num])) {
-            $horario_por_dia[$dia_num]['clases'][] = [
-                'seccion' => $horario['seccion'],
-                'grado' => $horario['grado'],
-                'materia' => $horario['materia'],
-                'hora_inicio_24' => $horario['hora_inicio_24'],
-                'hora_inicio_12' => $horario['hora_inicio_12'],
-                'hora_fin_24' => $horario['hora_fin_24'],
-                'hora_fin_12' => $horario['hora_fin_12'],
-                'aula' => $horario['aula']
-            ];
-        }
-    }
-    
-    // Ordenar clases por hora dentro de cada día
-    foreach ($horario_por_dia as &$dia) {
-        usort($dia['clases'], function($a, $b) {
-            return strcmp($a['hora_inicio_24'], $b['hora_inicio_24']);
-        });
-    }
-    
-    return $horario_por_dia;
-}
-
-// CONSULTAS ESPECÍFICAS PARA DOCENTES
+// CONSULTAS ESPECÍFICAS PARA DOCENTES - CORREGIDAS
 function getDatosDocente($pdo, $id_usuario_sesion) {
     if (!$id_usuario_sesion) {
+        error_log("ERROR getDatosDocente: ID de usuario es 0");
         return ['nombre' => 'Docente', 'error' => 'ID usuario vacío'];
     }
     
     try {
+        // Obtener email del usuario desde la tabla usuarios
         $sql_usuario = "SELECT email, id_usuario FROM usuarios WHERE id_usuario = :id_usuario AND estado = 1";
         $stmt = $pdo->prepare($sql_usuario);
         $stmt->bindParam(':id_usuario', $id_usuario_sesion, PDO::PARAM_INT);
@@ -284,9 +171,11 @@ function getDatosDocente($pdo, $id_usuario_sesion) {
         $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$usuario || empty($usuario['email'])) {
+            error_log("ERROR getDatosDocente: No se encontró usuario con ID " . $id_usuario_sesion);
             return ['nombre' => 'Docente'];
         }
         
+        // Buscar el profesor por email (PRIMER MÉTODO - por email)
         $sql_profesor = "SELECT * FROM profesores WHERE email = :email AND estado = 1 LIMIT 1";
         $stmt = $pdo->prepare($sql_profesor);
         $stmt->bindParam(':email', $usuario['email'], PDO::PARAM_STR);
@@ -302,6 +191,7 @@ function getDatosDocente($pdo, $id_usuario_sesion) {
             ];
         }
         
+        // Si no encuentra por email, buscar por id_usuario (SEGUNDO MÉTODO)
         $sql_profesor2 = "SELECT * FROM profesores WHERE id_usuario = :id_usuario AND estado = 1 LIMIT 1";
         $stmt = $pdo->prepare($sql_profesor2);
         $stmt->bindParam(':id_usuario', $id_usuario_sesion, PDO::PARAM_INT);
@@ -325,19 +215,21 @@ function getDatosDocente($pdo, $id_usuario_sesion) {
     }
 }
 
-// Obtener cursos asignados al docente
+// Obtener cursos asignados al docente (materias) - VERSIÓN CORREGIDA
 function getCursosDocente($pdo, $id_profesor) {
     if (!$id_profesor) {
         return ['total_cursos' => 0, 'detalle' => []];
     }
     
     try {
+        // Primero obtener la gestión activa
         $sql_gestion = "SELECT id_gestion FROM gestiones WHERE estado = 1 LIMIT 1";
         $stmt = $pdo->prepare($sql_gestion);
         $stmt->execute();
         $gestion = $stmt->fetch(PDO::FETCH_ASSOC);
         $id_gestion_activa = $gestion ? $gestion['id_gestion'] : 0;
         
+        // Contar materias asignadas al profesor en la gestión activa SOLO ACTIVAS
         $sql_count = "SELECT COUNT(DISTINCT a.id_materia) as total_cursos 
                      FROM asignaciones_profesor a 
                      WHERE a.id_profesor = :id_profesor 
@@ -351,11 +243,13 @@ function getCursosDocente($pdo, $id_profesor) {
         
         $total = $result['total_cursos'] ?? 0;
         
+        // Obtener detalle de cursos
         $sql_detalle = "SELECT DISTINCT a.id_materia, m.nombre_materia, a.id_seccion, 
                         s.nombre_seccion, g.grado
                        FROM asignaciones_profesor a
                        LEFT JOIN materias m ON a.id_materia = m.id_materia
                        LEFT JOIN secciones s ON a.id_seccion = s.id_seccion
+                       LEFT JOIN grados gr ON s.id_grado = gr.id_grado
                        LEFT JOIN grados g ON s.id_grado = g.id_grado
                        WHERE a.id_profesor = :id_profesor 
                        AND a.estado = 1
@@ -379,13 +273,14 @@ function getCursosDocente($pdo, $id_profesor) {
     }
 }
 
-// Obtener total de estudiantes del docente
+// Obtener total de estudiantes del docente - VERSIÓN CORREGIDA DEFINITIVA
 function getEstudiantesDocente($pdo, $id_profesor) {
     if (!$id_profesor) {
         return ['total_estudiantes' => 0];
     }
     
     try {
+        // Obtener gestión activa
         $sql_gestion = "SELECT id_gestion FROM gestiones WHERE estado = 1 LIMIT 1";
         $stmt = $pdo->prepare($sql_gestion);
         $stmt->execute();
@@ -396,6 +291,7 @@ function getEstudiantesDocente($pdo, $id_profesor) {
             return ['total_estudiantes' => 0];
         }
         
+        // Obtener estudiantes únicos SOLO de asignaciones ACTIVAS del profesor
         $sql = "SELECT COUNT(DISTINCT i.id_estudiante) as total_estudiantes
                 FROM asignaciones_profesor ap
                 JOIN inscripciones i ON ap.id_seccion = i.id_seccion
@@ -414,7 +310,9 @@ function getEstudiantesDocente($pdo, $id_profesor) {
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        return ['total_estudiantes' => $result['total_estudiantes'] ?? 0];
+        $total = $result['total_estudiantes'] ?? 0;
+        
+        return ['total_estudiantes' => $total];
         
     } catch (PDOException $e) {
         error_log("Error en getEstudiantesDocente: " . $e->getMessage());
@@ -422,13 +320,91 @@ function getEstudiantesDocente($pdo, $id_profesor) {
     }
 }
 
-// Obtener calificaciones pendientes del docente
+// Obtener detalle de estudiantes del docente - SOLO ASIGNACIONES ACTIVAS
+function getDetalleEstudiantesDocente($pdo, $id_profesor) {
+    if (!$id_profesor) {
+        return ['detalle' => [], 'total' => 0];
+    }
+    
+    try {
+        // Obtener gestión activa
+        $sql_gestion = "SELECT id_gestion FROM gestiones WHERE estado = 1 LIMIT 1";
+        $stmt = $pdo->prepare($sql_gestion);
+        $stmt->execute();
+        $gestion = $stmt->fetch(PDO::FETCH_ASSOC);
+        $id_gestion_activa = $gestion ? $gestion['id_gestion'] : 0;
+        
+        if (!$id_gestion_activa) {
+            return ['detalle' => [], 'total' => 0];
+        }
+        
+        // Obtener las secciones asignadas al profesor SOLO ACTIVAS
+        $sql_secciones = "SELECT DISTINCT a.id_seccion, s.nombre_seccion, g.grado
+                         FROM asignaciones_profesor a
+                         LEFT JOIN secciones s ON a.id_seccion = s.id_seccion
+                         LEFT JOIN grados g ON s.id_grado = g.id_grado
+                         WHERE a.id_profesor = :id_profesor 
+                         AND a.estado = 1
+                         AND a.id_gestion = :id_gestion
+                         ORDER BY g.grado, s.nombre_seccion";
+        
+        $stmt = $pdo->prepare($sql_secciones);
+        $stmt->bindParam(':id_profesor', $id_profesor, PDO::PARAM_INT);
+        $stmt->bindParam(':id_gestion', $id_gestion_activa, PDO::PARAM_INT);
+        $stmt->execute();
+        $secciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $detalle_estudiantes = [];
+        $total_estudiantes = 0;
+        
+        foreach ($secciones as $seccion) {
+            // Obtener estudiantes en esta sección SOLO ACTIVOS
+            $sql_estudiantes = "SELECT i.id_estudiante, e.nombres, e.apellidos, e.cedula
+                               FROM inscripciones i
+                               LEFT JOIN estudiantes e ON i.id_estudiante = e.id_estudiante
+                               WHERE i.id_seccion = :id_seccion 
+                               AND i.id_gestion = :id_gestion
+                               AND i.estado = 'activo'
+                               AND e.estatus = 'activo'
+                               ORDER BY e.apellidos, e.nombres";
+            
+            $stmt = $pdo->prepare($sql_estudiantes);
+            $stmt->bindParam(':id_seccion', $seccion['id_seccion'], PDO::PARAM_INT);
+            $stmt->bindParam(':id_gestion', $id_gestion_activa, PDO::PARAM_INT);
+            $stmt->execute();
+            $estudiantes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (count($estudiantes) > 0) {
+                $detalle_estudiantes[] = [
+                    'seccion_id' => $seccion['id_seccion'],
+                    'seccion' => $seccion['nombre_seccion'],
+                    'grado' => $seccion['grado'],
+                    'total' => count($estudiantes),
+                    'estudiantes' => $estudiantes
+                ];
+                $total_estudiantes += count($estudiantes);
+            }
+        }
+        
+        return [
+            'detalle' => $detalle_estudiantes,
+            'total' => $total_estudiantes
+        ];
+        
+    } catch (PDOException $e) {
+        error_log("Error en getDetalleEstudiantesDocente: " . $e->getMessage());
+        return ['detalle' => [], 'total' => 0];
+    }
+}
+
+// Obtener calificaciones pendientes del docente - VERSIÓN CON SISTEMA DE LAPSOS SECUENCIALES
 function getCalificacionesPendientes($pdo, $id_profesor) {
     if (!$id_profesor) {
         return ['pendientes' => 0, 'detalle' => [], 'mensaje' => 'Profesor no identificado'];
     }
     
     try {
+        // Obtener gestión activa
         $sql_gestion = "SELECT id_gestion FROM gestiones WHERE estado = 1 LIMIT 1";
         $stmt = $pdo->prepare($sql_gestion);
         $stmt->execute();
@@ -439,10 +415,14 @@ function getCalificacionesPendientes($pdo, $id_profesor) {
             return ['pendientes' => 0, 'detalle' => [], 'mensaje' => 'No hay período activo'];
         }
         
+        // Obtener el lapso actual según el sistema secuencial
         $lapso_info = getLapsoActualSecuencial($pdo, $id_profesor, $id_gestion_activa);
         $id_lapso_actual = $lapso_info['id_lapso'];
         $nombre_lapso = $lapso_info['nombre_lapso'];
         
+        error_log("DEBUG: Lapso actual (secuencial): $id_lapso_actual - $nombre_lapso");
+        
+        // Obtener materias asignadas al profesor con detalle
         $sql_materias = "SELECT DISTINCT ap.id_materia, m.nombre_materia, 
                          ap.id_seccion, s.nombre_seccion, g.grado
                         FROM asignaciones_profesor ap
@@ -474,6 +454,7 @@ function getCalificacionesPendientes($pdo, $id_profesor) {
             $nombre_seccion = $materia['nombre_seccion'];
             $grado = $materia['grado'];
             
+            // Obtener estudiantes ACTIVOS en esta sección
             $sql_estudiantes = "SELECT i.id_estudiante, e.nombres, e.apellidos, e.cedula,
                                (SELECT COUNT(*) FROM notas_estudiantes ne 
                                 WHERE ne.id_estudiante = i.id_estudiante 
@@ -526,6 +507,8 @@ function getCalificacionesPendientes($pdo, $id_profesor) {
             }
         }
         
+        error_log("DEBUG: Total pendientes en lapso $id_lapso_actual ($nombre_lapso): $total_pendientes");
+        
         return [
             'pendientes' => $total_pendientes,
             'detalle' => $detalle_pendientes,
@@ -542,15 +525,119 @@ function getCalificacionesPendientes($pdo, $id_profesor) {
     }
 }
 
+// Obtener horarios del docente
+function getHorariosDocente($pdo, $id_profesor) {
+    if (!$id_profesor) {
+        return ['horarios' => [], 'total' => 0];
+    }
+    
+    try {
+        // Obtener gestión activa
+        $sql_gestion = "SELECT id_gestion FROM gestiones WHERE estado = 1 LIMIT 1";
+        $stmt = $pdo->prepare($sql_gestion);
+        $stmt->execute();
+        $gestion = $stmt->fetch(PDO::FETCH_ASSOC);
+        $id_gestion_activa = $gestion ? $gestion['id_gestion'] : 0;
+        
+        if (!$id_gestion_activa) {
+            return ['horarios' => [], 'total' => 0];
+        }
+        
+        // Obtener horarios del profesor para la gestión activa
+        $sql_horarios = "SELECT h.*, 
+                        g.grado, 
+                        s.nombre_seccion,
+                        h.aula,
+                        DATE_FORMAT(h.fecha_inicio, '%d/%m/%Y') as fecha_inicio_formatted,
+                        DATE_FORMAT(h.fecha_fin, '%d/%m/%Y') as fecha_fin_formatted
+                       FROM horarios h
+                       LEFT JOIN grados g ON h.id_grado = g.id_grado
+                       LEFT JOIN secciones s ON h.id_seccion = s.id_seccion
+                       LEFT JOIN asignaciones_profesor ap ON h.id_grado = ap.id_grado 
+                         AND h.id_seccion = ap.id_seccion
+                       WHERE ap.id_profesor = :id_profesor 
+                       AND h.id_gestion = :id_gestion
+                       AND h.estado = 1
+                       AND ap.estado = 1
+                       ORDER BY h.fecha_inicio, g.grado, s.nombre_seccion";
+        
+        $stmt = $pdo->prepare($sql_horarios);
+        $stmt->bindParam(':id_profesor', $id_profesor, PDO::PARAM_INT);
+        $stmt->bindParam(':id_gestion', $id_gestion_activa, PDO::PARAM_INT);
+        $stmt->execute();
+        $horarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Agrupar horarios por día de la semana
+        $horarios_agrupados = [];
+        $dias_semana = [
+            1 => 'Lunes',
+            2 => 'Martes',
+            3 => 'Miércoles',
+            4 => 'Jueves',
+            5 => 'Viernes',
+            6 => 'Sábado',
+            0 => 'Domingo'
+        ];
+        
+        foreach ($horarios as $horario) {
+            // Extraer día de la semana de fecha_inicio
+            $fecha = new DateTime($horario['fecha_inicio']);
+            $dia_semana = $fecha->format('N'); // 1 (lunes) a 7 (domingo)
+            $dia_nombre = $dias_semana[$dia_semana] ?? 'Sin día';
+            
+            if (!isset($horarios_agrupados[$dia_nombre])) {
+                $horarios_agrupados[$dia_nombre] = [];
+            }
+            
+            $horarios_agrupados[$dia_nombre][] = $horario;
+        }
+        
+        return [
+            'horarios' => $horarios_agrupados,
+            'total' => count($horarios),
+            'detalle' => $horarios
+        ];
+        
+    } catch (PDOException $e) {
+        error_log("Error en getHorariosDocente: " . $e->getMessage());
+        return ['horarios' => [], 'total' => 0];
+    }
+}
+
 // Consultas seguras (solo para tablas que existen)
 $gestion_activa = getPeriodoEscolarActivo($pdo);
 $id_gestion_activa = $gestion_activa ? $gestion_activa['id_gestion'] : null;
 
+// Obtener estudiantes no inscritos
+$estudiantes_no_inscritos = [];
+if ($id_gestion_activa) {
+    $estudiantes_no_inscritos = getEstudiantesNoInscritos($pdo, $id_gestion_activa);
+}
+$contador_no_inscritos = count($estudiantes_no_inscritos);
+
+// Obtener inscripciones por grado del año actual
+$inscripciones_por_grado = [];
+if ($id_gestion_activa) {
+    $inscripciones_por_grado = getInscripcionesPorGrado($pdo, $id_gestion_activa);
+}
+
 // Obtener datos específicos para docentes
 if ($rol_sesion_usuario == "DOCENTE") {
-    // Obtener ID del usuario de la sesión
-    $id_usuario_sesion = $_SESSION['id_usuario'] ?? $_SESSION['id'] ?? $_SESSION['user_id'] ?? $_SESSION['usuario_id'] ?? 0;
+    // CORRECCIÓN PRINCIPAL: Obtener correctamente el ID del usuario de la sesión
+    $id_usuario_sesion = 0;
     
+    // Intentar diferentes formas de obtener el ID
+    if (isset($_SESSION['id_usuario']) && $_SESSION['id_usuario'] > 0) {
+        $id_usuario_sesion = $_SESSION['id_usuario'];
+    } elseif (isset($_SESSION['id']) && $_SESSION['id'] > 0) {
+        $id_usuario_sesion = $_SESSION['id'];
+    } elseif (isset($_SESSION['user_id']) && $_SESSION['user_id'] > 0) {
+        $id_usuario_sesion = $_SESSION['user_id'];
+    } elseif (isset($_SESSION['usuario_id']) && $_SESSION['usuario_id'] > 0) {
+        $id_usuario_sesion = $_SESSION['usuario_id'];
+    }
+    
+    // Si aún es 0, intentar obtener del email en sesión
     if ($id_usuario_sesion == 0 && isset($_SESSION['email'])) {
         $sql_email = "SELECT id_usuario FROM usuarios WHERE email = :email AND estado = 1 LIMIT 1";
         $stmt = $pdo->prepare($sql_email);
@@ -568,34 +655,16 @@ if ($rol_sesion_usuario == "DOCENTE") {
     // Obtener el ID del profesor
     $id_profesor = $datos_docente['id_profesor'] ?? 0;
     
-    // Si no se encontró profesor, buscar por nombre (Heldyn/Saned)
-    if (!$id_profesor) {
-        $sql_check = "SELECT id_profesor FROM profesores WHERE nombres LIKE '%Heldyn%' OR nombres LIKE '%Saned%' LIMIT 1";
-        $stmt = $pdo->prepare($sql_check);
-        $stmt->execute();
-        $prof_check = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($prof_check) {
-            $id_profesor = $prof_check['id_profesor'];
-            $sql_prof = "SELECT * FROM profesores WHERE id_profesor = :id_profesor";
-            $stmt = $pdo->prepare($sql_prof);
-            $stmt->bindParam(':id_profesor', $id_profesor, PDO::PARAM_INT);
-            $stmt->execute();
-            $prof_data = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            $datos_docente = [
-                'nombre' => $prof_data['nombres'] . ' ' . $prof_data['apellidos'],
-                'email' => $prof_data['email'],
-                'id_profesor' => $prof_data['id_profesor'],
-                'cedula' => $prof_data['cedula'] ?? ''
-            ];
-        } else {
-            $id_profesor = 3;
-            $datos_docente = [
-                'nombre' => 'Heldyn David Diaz Daboin',
-                'id_profesor' => 3
-            ];
-        }
+    // Si no se encontró profesor por los métodos anteriores, usar valor por defecto
+    if (!$id_profesor && $id_usuario_sesion > 0) {
+        // Para pruebas, usar el profesor ID 3 (Heldyn David)
+        $id_profesor = 3;
+        $datos_docente = [
+            'nombre' => 'Heldyn David Diaz Daboin',
+            'email' => 'heldyndiaz19@gmail.com',
+            'id_profesor' => 3,
+            'cedula' => '27985583'
+        ];
     }
     
     if ($id_profesor) {
@@ -603,16 +672,19 @@ if ($rol_sesion_usuario == "DOCENTE") {
         $cursos_docente = getCursosDocente($pdo, $id_profesor);
         $estudiantes_docente = getEstudiantesDocente($pdo, $id_profesor);
         $calificaciones_pendientes = getCalificacionesPendientes($pdo, $id_profesor);
+        $detalle_estudiantes = getDetalleEstudiantesDocente($pdo, $id_profesor);
+        $horarios_docente = getHorariosDocente($pdo, $id_profesor);
         
-        // Obtener horario del profesor
-        $horario_profesor = getHorarioProfesor($pdo, $id_profesor, $id_gestion_activa);
-        $horario_por_dia = getHorarioPorDia($horario_profesor);
+        // Asegurar consistencia entre métodos
+        if (isset($detalle_estudiantes['total']) && $detalle_estudiantes['total'] != $estudiantes_docente['total_estudiantes']) {
+            $estudiantes_docente['total_estudiantes'] = $detalle_estudiantes['total'];
+        }
     } else {
         $cursos_docente = ['total_cursos' => 0, 'detalle' => []];
         $estudiantes_docente = ['total_estudiantes' => 0];
         $calificaciones_pendientes = ['pendientes' => 0, 'detalle' => [], 'mensaje' => 'Profesor no encontrado'];
-        $horario_profesor = [];
-        $horario_por_dia = [];
+        $detalle_estudiantes = ['detalle' => [], 'total' => 0];
+        $horarios_docente = ['horarios' => [], 'total' => 0];
     }
 }
 
@@ -641,370 +713,396 @@ if ($rol_sesion_usuario == "DOCENTE") {
         
         <!-- VISTA PARA DOCENTES -->
         <?php if ($rol_sesion_usuario == "DOCENTE") { ?>
-            <!-- Bienvenida con fondo azul -->
-            <div class="card mb-4">
-                <div class="card-body" style="background: linear-gradient(135deg, #0066cc 0%, #004d99 100%); color: white; border-radius: 8px;">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <h3 class="mb-2">Bienvenido, Prof. <?php echo htmlspecialchars($datos_docente['nombre'] ?? 'Docente'); ?></h3>
-                            <p class="mb-0" style="opacity: 0.9;">Es un placer tenerle de vuelta. Aquí tiene un resumen de sus actividades.</p>
+            <!-- TARJETA DE BIENVENIDA CON NUEVO ESTILO -->
+            <div class="col-lg-12 mb-4">  
+                <div class="card card-dashboard" style="border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); border: none; height: 100%;">  
+                    <div class="card-body" style="padding: 1.5rem; position: relative;">  
+                        <div class="image-background">
+                            <img src="<?=APP_URL;?>" alt="Profesor" style="width: 80px; height: 80px; opacity: 0.1;">
                         </div>
-                        <div class="col-md-4 text-right">
-                            <i class="fas fa-chalkboard-teacher fa-3x" style="opacity: 0.8;"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Estadísticas principales - TODAS CON FRANJA AZUL -->
-            <div class="row mb-4">
-                <!-- Cursos Asignados - CON FRANJA AZUL -->
-                <div class="col-md-4 mb-3">
-                    <div class="card h-100">
-                        <div class="card-header" style="background: linear-gradient(135deg, #0066cc 0%, #004d99 100%); color: white; padding: 12px;">
-                            <h5 class="card-title mb-0" style="font-size: 1rem;">
-                                <i class="fas fa-book mr-1"></i>Cursos Asignados
-                            </h5>
-                        </div>
-                        <div class="card-body p-3 text-center">
-                            <h2 style="font-size: 2.5rem; font-weight: bold; margin-bottom: 10px;"><?php echo $cursos_docente['total_cursos'] ?? 0; ?></h2>
-                            <div>
-                                <?php if (($cursos_docente['total_cursos'] ?? 0) == 0): ?>
-                                    <span class="badge badge-warning">Sin asignaciones</span>
-                                <?php else: ?>
-                                    <span class="badge badge-success">Activas</span>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h3 style="color: #3c8dbc; font-weight: 700; margin-bottom: 0.5rem;">Bienvenido, Prof. <?php echo htmlspecialchars($datos_docente['nombre'] ?? 'Docente'); ?></h3>
+                                <p class="text-muted mb-2">Es un placer tenerle de vuelta. Aquí tiene un resumen de sus actividades.</p>
+                                <?php if (isset($datos_docente['email'])): ?>
+                                    <small class="opacity-75"><i class="fas fa-envelope mr-1"></i><?php echo htmlspecialchars($datos_docente['email']); ?></small>
+                                <?php endif; ?>
+                                <?php if (isset($datos_docente['cedula']) && !empty($datos_docente['cedula'])): ?>
+                                    <small class="opacity-75 d-block"><i class="fas fa-id-card mr-1"></i><?php echo htmlspecialchars($datos_docente['cedula']); ?></small>
                                 <?php endif; ?>
                             </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Estudiantes - CON FRANJA AZUL -->
-                <div class="col-md-4 mb-3">
-                    <div class="card h-100">
-                        <div class="card-header" style="background: linear-gradient(135deg, #0066cc 0%, #004d99 100%); color: white; padding: 12px;">
-                            <h5 class="card-title mb-0" style="font-size: 1rem;">
-                                <i class="fas fa-user-graduate mr-1"></i>Estudiantes
-                            </h5>
-                        </div>
-                        <div class="card-body p-3 text-center">
-                            <h2 style="font-size: 2.5rem; font-weight: bold; margin-bottom: 10px;"><?php echo $estudiantes_docente['total_estudiantes'] ?? 0; ?></h2>
-                            <div>
-                                <?php if (($estudiantes_docente['total_estudiantes'] ?? 0) == 0): ?>
-                                    <span class="badge badge-info">Sin estudiantes</span>
-                                <?php else: ?>
-                                    <span style="color: #0066cc;">
-                                        <i class="fas fa-users mr-1"></i>
-                                        <?php echo $estudiantes_docente['total_estudiantes']; ?> estudiantes
-                                    </span>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Calificaciones Pendientes - CON FRANJA AZUL -->
-                <div class="col-md-4 mb-3">
-                    <div class="card h-100">
-                        <div class="card-header" style="background: linear-gradient(135deg, #0066cc 0%, #004d99 100%); color: white; padding: 12px;">
-                            <h5 class="card-title mb-0" style="font-size: 1rem;">
-                                <i class="fas fa-tasks mr-1"></i>Calificaciones Pendientes
-                            </h5>
-                        </div>
-                        <div class="card-body p-3 text-center">
-                            <h2 style="font-size: 2.5rem; font-weight: bold; margin-bottom: 10px;"><?php echo $calificaciones_pendientes['pendientes'] ?? 0; ?></h2>
-                            <div>
-                                <?php if (($calificaciones_pendientes['pendientes'] ?? 0) > 0): ?>
-                                    <span class="badge badge-danger">Requiere atención</span>
-                                <?php else: ?>
-                                    <span class="badge badge-success">Al día</span>
-                                <?php endif; ?>
-                            </div>
-                            <?php if (isset($calificaciones_pendientes['nombre_lapso'])): ?>
-                                <small class="text-muted d-block mt-2">
-                                    Lapso: <?php echo $calificaciones_pendientes['nombre_lapso']; ?>
-                                </small>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Horario Semanal del Profesor -->
-            <?php if (!empty($horario_por_dia)): ?>
-            <div class="card mb-4">
-                <div class="card-header" style="background: linear-gradient(135deg, #0066cc 0%, #004d99 100%); color: white; padding: 12px;">
-                    <h5 class="card-title mb-0" style="font-size: 1.1rem;">
-                        <i class="fas fa-calendar-alt mr-2"></i>Horario Semanal
-                    </h5>
-                </div>
-                <div class="card-body p-3">
-                    <div class="row">
-                        <?php 
-                        $dias_con_clases = 0;
-                        foreach ($horario_por_dia as $dia_num => $dia_data): 
-                            if (!empty($dia_data['clases'])): 
-                                $dias_con_clases++;
-                        ?>
-                        <div class="col-md-6 col-lg-4 mb-3">
-                            <div class="card border h-100">
-                                <div class="card-header bg-light py-2">
-                                    <h6 class="card-title mb-0" style="font-size: 0.95rem;">
-                                        <i class="fas fa-calendar-day mr-1"></i><?php echo $dia_data['nombre']; ?>
-                                    </h6>
-                                </div>
-                                <div class="card-body p-2" style="font-size: 0.85rem;">
-                                    <?php foreach ($dia_data['clases'] as $clase): ?>
-                                    <div class="border-bottom pb-2 mb-2">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <strong class="text-primary"><?php echo $clase['materia']; ?></strong>
-                                            <small class="text-muted text-nowrap ml-2">
-                                                <?php echo $clase['hora_inicio_12']; ?> - <?php echo $clase['hora_fin_12']; ?>
-                                            </small>
-                                        </div>
-                                        <div class="mt-1">
-                                            <small><i class="fas fa-users mr-1"></i> 
-                                                <?php echo $clase['grado']; ?> - <?php echo $clase['seccion']; ?>
-                                            </small>
-                                        </div>
-                                        <div>
-                                            <small><i class="fas fa-door-open mr-1"></i> Aula: <?php echo $clase['aula']; ?></small>
-                                        </div>
-                                    </div>
-                                    <?php endforeach; ?>
+                            <div class="col-md-4 text-right">
+                                <div class="icon-dashboard" style="background: linear-gradient(135deg, rgba(60, 141, 188, 0.1) 0%, rgba(45, 95, 126, 0.1) 100%); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-left: auto;">
+                                    <i class="fas fa-chalkboard-teacher" style="color: #3c8dbc; font-size: 2rem;"></i>
                                 </div>
                             </div>
                         </div>
-                        <?php 
-                            endif;
-                        endforeach; 
-                        
-                        // Mostrar mensaje si no hay clases programadas
-                        if ($dias_con_clases == 0): 
-                        ?>
-                        <div class="col-12">
-                            <div class="alert alert-info mb-0">
-                                <i class="fas fa-info-circle mr-2"></i>No hay clases programadas para esta semana.
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
+                    </div>  
+                </div>  
             </div>
-            <?php else: ?>
-            <div class="card mb-4">
-                <div class="card-header" style="background: linear-gradient(135deg, #6c757d 0%, #545b62 100%); color: white; padding: 12px;">
-                    <h5 class="card-title mb-0" style="font-size: 1.1rem;">
-                        <i class="fas fa-calendar-alt mr-2"></i>Horario Semanal
-                    </h5>
-                </div>
-                <div class="card-body p-3">
-                    <div class="alert alert-info mb-0">
-                        <i class="fas fa-info-circle mr-2"></i>No hay horario asignado para este período.
-                    </div>
-                </div>
-            </div>
-            <?php endif; ?>
 
-            <!-- Información del Período -->
-            <div class="card mb-4">
-                <div class="card-header" style="background: linear-gradient(135deg, #0066cc 0%, #004d99 100%); color: white; padding: 12px;">
-                    <h5 class="card-title mb-0" style="font-size: 1.1rem;">
-                        <i class="fas fa-info-circle mr-2"></i>Información del Período
-                    </h5>
+            <!-- ESTADÍSTICAS DEL DOCENTE CON NUEVO ESTILO -->
+            <div class="row mt-2">
+                <!-- Tarjeta 1: Distribución de Estudiantes (PRIMERA POSICIÓN) -->
+                <div class="col-lg-3 col-md-6 col-6 mb-4">  
+                    <div class="card card-dashboard" style="border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); border: none; height: 100%;">  
+                        <div class="card-body" style="padding: 1.5rem; position: relative;">  
+                            <div class="image-background">
+                                <img src="<?=APP_URL;?>" alt="Estudiantes" style="width: 80px; height: 80px; opacity: 0.1;">
+                            </div>
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h3 style="color: #3c8dbc; font-weight: 700; margin-bottom: 0.5rem;"><?php echo $detalle_estudiantes['total'] ?? 0; ?></h3>
+                                    <p class="text-muted mb-2">Distribución de Estudiantes</p>
+                                    <?php if (($detalle_estudiantes['total'] ?? 0) == 0): ?>
+                                        <span class="badge badge-info"><i class="fas fa-info-circle mr-1"></i>Sin estudiantes</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-primary">
+                                            <i class="fas fa-users mr-1"></i>
+                                            <?php echo count($detalle_estudiantes['detalle'] ?? []); ?> sección(es)
+                                        </span>
+                                    <?php endif; ?>
+                                </div>  
+                                <div class="icon-dashboard" style="background: linear-gradient(135deg, rgba(60, 141, 188, 0.1) 0%, rgba(45, 95, 126, 0.1) 100%); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-user-graduate" style="color: #3c8dbc; font-size: 1.5rem;"></i>  
+                                </div>  
+                            </div>
+                        </div>  
+                        <a href="#" class="card-footer custom-btn text-white text-center" style="text-decoration: none; display: block; padding: 0.75rem; background-color: #3c8dbc;">  
+                            Ver Detalles <i class="fas fa-arrow-circle-right ml-1"></i>  
+                        </a>  
+                    </div>  
                 </div>
-                <div class="card-body p-3">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6 style="font-size: 0.95rem; margin-bottom: 15px;"><i class="fas fa-calendar mr-2"></i>Período Escolar</h6>
-                            <?php if ($gestion_activa): ?>
-                                <div style="font-size: 0.9rem;">
-                                    <p class="mb-2">
-                                        <strong>Periodo:</strong> 
+
+                <!-- Tarjeta 2: Cursos Asignados -->
+                <div class="col-lg-3 col-md-6 col-6 mb-4">  
+                    <div class="card card-dashboard" style="border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); border: none; height: 100%;">  
+                        <div class="card-body" style="padding: 1.5rem; position: relative;">  
+                            <div class="image-background">
+                                <img src="<?=APP_URL;?>" alt="Libro" style="width: 80px; height: 80px; opacity: 0.1;">
+                            </div>
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h3 style="color: #3c8dbc; font-weight: 700; margin-bottom: 0.5rem;"><?php echo $cursos_docente['total_cursos'] ?? 0; ?></h3>
+                                    <p class="text-muted mb-2">Mis Cursos Asignados</p>
+                                    <?php if (($cursos_docente['total_cursos'] ?? 0) == 0): ?>
+                                        <span class="badge badge-warning"><i class="fas fa-exclamation-circle mr-1"></i>Sin asignaciones</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-success"><i class="fas fa-check-circle mr-1"></i>Activas</span>
+                                    <?php endif; ?>
+                                </div>  
+                                <div class="icon-dashboard" style="background: linear-gradient(135deg, rgba(60, 141, 188, 0.1) 0%, rgba(45, 95, 126, 0.1) 100%); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-book" style="color: #3c8dbc; font-size: 1.5rem;"></i>  
+                                </div>  
+                            </div>
+                        </div>  
+                        <a href="#" class="card-footer custom-btn text-white text-center" style="text-decoration: none; display: block; padding: 0.75rem; background-color: #3c8dbc;">  
+                            Ver Cursos <i class="fas fa-arrow-circle-right ml-1"></i>  
+                        </a>  
+                    </div>  
+                </div>
+
+                <!-- Tarjeta 3: Calificaciones Pendientes -->
+                <div class="col-lg-3 col-md-6 col-6 mb-4">  
+                    <div class="card card-dashboard" style="border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); border: none; height: 100%;">  
+                        <div class="card-body" style="padding: 1.5rem; position: relative;">  
+                            <div class="image-background">
+                                <img src="<?=APP_URL;?>" alt="Tareas" style="width: 80px; height: 80px; opacity: 0.1;">
+                            </div>
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h3 style="color: #3c8dbc; font-weight: 700; margin-bottom: 0.5rem;"><?php echo $calificaciones_pendientes['pendientes'] ?? 0; ?></h3>
+                                    <p class="text-muted mb-2">Calificaciones Pendientes</p>
+                                    <small class="d-block text-muted mb-1">
+                                        <i class="fas fa-calendar-alt mr-1"></i> Lapso actual: <?php echo $calificaciones_pendientes['nombre_lapso'] ?? 'N/A'; ?>
+                                    </small>
+                                    <?php if (($calificaciones_pendientes['pendientes'] ?? 0) > 0): ?>
+                                        <span class="badge badge-danger"><i class="fas fa-clock mr-1"></i>Requiere atención</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-success"><i class="fas fa-check-circle mr-1"></i>Al día</span>
+                                    <?php endif; ?>
+                                </div>  
+                                <div class="icon-dashboard" style="background: linear-gradient(135deg, rgba(60, 141, 188, 0.1) 0%, rgba(45, 95, 126, 0.1) 100%); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-tasks" style="color: #3c8dbc; font-size: 1.5rem;"></i>  
+                                </div>  
+                            </div>
+                        </div>  
+                        <a href="#" class="card-footer custom-btn text-white text-center" style="text-decoration: none; display: block; padding: 0.75rem; background-color: #3c8dbc;">  
+                            Gestionar <i class="fas fa-arrow-circle-right ml-1"></i>  
+                        </a>  
+                    </div>  
+                </div>
+
+                <!-- Tarjeta 4: Información del Periodo -->
+                <div class="col-lg-3 col-md-6 col-6 mb-4">  
+                    <div class="card card-dashboard" style="border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); border: none; height: 100%;">  
+                        <div class="card-body" style="padding: 1.5rem; position: relative;">  
+                            <div class="image-background">
+                                <img src="<?=APP_URL;?>" alt="Calendario" style="width: 80px; height: 80px; opacity: 0.1;">
+                            </div>
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <?php if ($gestion_activa): ?>
                                         <?php  
                                         $año_inicio = date('Y', strtotime($gestion_activa['desde']));  
                                         $año_fin = date('Y', strtotime($gestion_activa['hasta']));  
-                                        echo "{$año_inicio}-{$año_fin}";  
+                                        echo "<h3 style='color: #3c8dbc; font-weight: 700; margin-bottom: 0.5rem;'>{$año_inicio}-{$año_fin}</h3>";  
                                         ?>
-                                    </p>
-                                    <p class="mb-2">
-                                        <strong>Estado:</strong> 
-                                        <span class="badge badge-success">ACTIVO</span>
-                                    </p>
-                                    <p class="mb-1">
-                                        <strong>Inicio:</strong> <?php echo date('d/m/Y', strtotime($gestion_activa['desde'])); ?>
-                                    </p>
-                                    <p class="mb-0">
-                                        <strong>Fin:</strong> <?php echo date('d/m/Y', strtotime($gestion_activa['hasta'])); ?>
-                                    </p>
-                                </div>
-                            <?php else: ?>
-                                <p class="mb-0 text-danger" style="font-size: 0.9rem;">
-                                    <i class="fas fa-exclamation-triangle mr-1"></i> No hay período activo configurado.
-                                </p>
-                            <?php endif; ?>
-                        </div>
-                        <div class="col-md-6">
-                            <h6 style="font-size: 0.95rem; margin-bottom: 15px;"><i class="fas fa-chart-line mr-2"></i>Sistema de Calificaciones</h6>
-                            <?php if (isset($calificaciones_pendientes['nombre_lapso'])): ?>
-                                <div style="font-size: 0.9rem;">
-                                    <p class="mb-2">
-                                        <strong>Lapso actual:</strong> 
-                                        <span class="badge badge-info"><?php echo $calificaciones_pendientes['nombre_lapso']; ?></span>
-                                    </p>
-                                    <p class="mb-3 text-muted">
-                                        <small><?php echo $calificaciones_pendientes['mensaje'] ?? ''; ?></small>
-                                    </p>
-                                    <?php 
-                                    $total_estudiantes = $estudiantes_docente['total_estudiantes'] ?? 1;
-                                    $calificadas = $total_estudiantes - ($calificaciones_pendientes['pendientes'] ?? 0);
-                                    $porcentaje = $total_estudiantes > 0 ? ($calificadas / $total_estudiantes) * 100 : 0;
-                                    ?>
-                                    <div class="progress" style="height: 10px; margin-bottom: 5px;">
-                                        <div class="progress-bar bg-success" role="progressbar" 
-                                             style="width: <?php echo $porcentaje; ?>%" 
-                                             aria-valuenow="<?php echo $porcentaje; ?>" 
-                                             aria-valuemin="0" 
-                                             aria-valuemax="100">
-                                        </div>
-                                    </div>
-                                    <small class="text-muted d-block">
-                                        <?php echo $calificadas; ?> de <?php echo $total_estudiantes; ?> calificaciones registradas
-                                    </small>
-                                </div>
-                            <?php else: ?>
-                                <p class="mb-0 text-muted" style="font-size: 0.9rem;">
-                                    <i class="fas fa-info-circle mr-1"></i> Información de lapsos no disponible
-                                </p>
-                            <?php endif; ?>
-                        </div>
-                    </div>
+                                    <?php else: ?>
+                                        <h3 style="color: #3c8dbc; font-weight: 700; margin-bottom: 0.5rem;">No activo</h3>
+                                    <?php endif; ?>
+                                    <p class="text-muted mb-2">Información del Periodo</p>
+                                    <?php if ($gestion_activa): ?>
+                                        <span class="badge badge-success"><i class="fas fa-check-circle mr-1"></i>Activo</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-danger"><i class="fas fa-exclamation-circle mr-1"></i>Inactivo</span>
+                                    <?php endif; ?>
+                                    <?php if (isset($calificaciones_pendientes['nombre_lapso'])): ?>
+                                        <small class="d-block text-muted mt-1">
+                                            <i class="fas fa-clock mr-1"></i> Lapso: <?php echo $calificaciones_pendientes['nombre_lapso']; ?>
+                                        </small>
+                                    <?php endif; ?>
+                                </div>  
+                                <div class="icon-dashboard" style="background: linear-gradient(135deg, rgba(60, 141, 188, 0.1) 0%, rgba(45, 95, 126, 0.1) 100%); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-calendar-alt" style="color: #3c8dbc; font-size: 1.5rem;"></i>  
+                                </div>  
+                            </div>
+                        </div>  
+                        <a href="#" class="card-footer custom-btn text-white text-center" style="text-decoration: none; display: block; padding: 0.75rem; background-color: #3c8dbc;">  
+                            Ver Detalles <i class="fas fa-arrow-circle-right ml-1"></i>  
+                        </a>  
+                    </div>  
                 </div>
             </div>
 
-            <!-- Detalle de Calificaciones Pendientes -->
-            <?php if (isset($calificaciones_pendientes['detalle']) && count($calificaciones_pendientes['detalle']) > 0): ?>
-            <div class="card mb-4" style="border: 1px solid #ffc107;">
-                <div class="card-header" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); color: #212529; padding: 12px;">
-                    <h5 class="card-title mb-0" style="font-size: 1.1rem;">
-                        <i class="fas fa-exclamation-triangle mr-2"></i>Calificaciones Pendientes
-                        <span class="badge badge-danger float-right" style="font-size: 0.8rem;"><?php echo $calificaciones_pendientes['pendientes']; ?> pendientes</span>
-                    </h5>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover table-sm mb-0">
-                            <thead>
-                                <tr>
-                                    <th style="width: 30%; padding: 10px;">Materia</th>
-                                    <th style="width: 25%; padding: 10px;">Sección</th>
-                                    <th style="width: 20%; padding: 10px;">Pendientes</th>
-                                    <th style="width: 25%; padding: 10px;">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($calificaciones_pendientes['detalle'] as $detalle): ?>
-                                <tr>
-                                    <td style="padding: 10px; vertical-align: middle;"><?php echo htmlspecialchars($detalle['materia']); ?></td>
-                                    <td style="padding: 10px; vertical-align: middle;"><?php echo htmlspecialchars($detalle['seccion']); ?> (<?php echo htmlspecialchars($detalle['grado']); ?>)</td>
-                                    <td style="padding: 10px; vertical-align: middle;">
-                                        <span class="badge badge-danger"><?php echo $detalle['pendientes']; ?> estudiantes</span>
-                                    </td>
-                                    <td style="padding: 10px; vertical-align: middle;">
-                                        <a href="?page=calificaciones&materia=<?php echo $detalle['materia_id']; ?>&seccion=<?php echo $detalle['seccion_id']; ?>&lapso=<?php echo $detalle['lapso']; ?>" 
-                                           class="btn btn-sm btn-outline-danger" style="padding: 3px 10px; font-size: 0.85rem;">
-                                            <i class="fas fa-edit mr-1"></i> Calificar
-                                        </a>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <?php endif; ?>
-
-            <!-- Detalle de Cursos Asignados -->
+            <!-- DETALLE DE CURSOS ASIGNADOS (DESPLEGABLE) -->
             <?php if (isset($cursos_docente['detalle']) && count($cursos_docente['detalle']) > 0): ?>
-            <div class="card mb-4">
-                <div class="card-header" style="background: linear-gradient(135deg, #0066cc 0%, #004d99 100%); color: white; padding: 12px;">
-                    <h5 class="card-title mb-0" style="font-size: 1.1rem;">
-                        <i class="fas fa-book-open mr-2"></i>Cursos Asignados
-                        <span class="badge badge-light float-right" style="font-size: 0.8rem;"><?php echo $cursos_docente['total_cursos']; ?> materias</span>
+            <div class="card mt-3 card-dashboard">
+                <div class="card-header bg-primary text-white" style="cursor: pointer;" onclick="toggleCursos()">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-book-open mr-2"></i>Mis Cursos Asignados
+                        <span class="badge badge-light float-right"><?php echo $cursos_docente['total_cursos']; ?> materias</span>
+                        <i class="fas fa-chevron-down float-right mr-2" id="cursosIcon"></i>
                     </h5>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover table-sm mb-0">
-                            <thead>
-                                <tr>
-                                    <th style="padding: 10px;">Materia</th>
-                                    <th style="padding: 10px;">Sección</th>
-                                    <th style="padding: 10px;">Grado</th>
-                                    <th style="padding: 10px;">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($cursos_docente['detalle'] as $curso): ?>
-                                <tr>
-                                    <td style="padding: 10px; vertical-align: middle;"><?php echo htmlspecialchars($curso['nombre_materia'] ?? 'N/A'); ?></td>
-                                    <td style="padding: 10px; vertical-align: middle;"><?php echo htmlspecialchars($curso['nombre_seccion'] ?? 'N/A'); ?></td>
-                                    <td style="padding: 10px; vertical-align: middle;"><?php echo htmlspecialchars($curso['grado'] ?? 'N/A'); ?></td>
-                                    <td style="padding: 10px; vertical-align: middle;"><span class="badge badge-success">Activa</span></td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                <div class="card-body p-0" id="cursosDetalle" style="display: none;">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Materia</th>
+                                <th>Sección</th>
+                                <th>Grado</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($cursos_docente['detalle'] as $curso): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($curso['nombre_materia'] ?? 'N/A'); ?></td>
+                                <td><?php echo htmlspecialchars($curso['nombre_seccion'] ?? 'N/A'); ?></td>
+                                <td><?php echo htmlspecialchars($curso['grado'] ?? 'N/A'); ?></td>
+                                <td><span class="badge badge-success">Activa</span></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- DETALLE DE CALIFICACIONES PENDIENTES (DESPLEGABLE) -->
+            <?php if (isset($calificaciones_pendientes['detalle']) && count($calificaciones_pendientes['detalle']) > 0): ?>
+            <div class="card mt-3 border-warning card-dashboard">
+                <div class="card-header bg-warning text-dark" style="cursor: pointer;" onclick="toggleCalificaciones()">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>Calificaciones Pendientes
+                        <span class="badge badge-danger float-right"><?php echo $calificaciones_pendientes['pendientes']; ?> pendientes</span>
+                        <i class="fas fa-chevron-down float-right mr-2" id="calificacionesIcon"></i>
+                    </h5>
+                    <small class="d-block mt-1">
+                        <i class="fas fa-calendar-alt mr-1"></i> Lapso actual: <?php echo $calificaciones_pendientes['nombre_lapso'] ?? 'N/A'; ?>
+                    </small>
+                </div>
+                <div class="card-body p-0" id="calificacionesDetalle" style="display: none;">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Materia</th>
+                                <th>Sección</th>
+                                <th>Pendientes</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($calificaciones_pendientes['detalle'] as $detalle): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($detalle['materia']); ?></td>
+                                <td><?php echo htmlspecialchars($detalle['seccion']); ?> (<?php echo htmlspecialchars($detalle['grado']); ?>)</td>
+                                <td>
+                                    <span class="badge badge-danger"><?php echo $detalle['pendientes']; ?> estudiantes</span>
+                                    <small class="d-block text-muted">Lapso: <?php echo $detalle['nombre_lapso'] ?? $detalle['lapso']; ?></small>
+                                </td>
+                                <td>
+                                    <a href="?page=calificaciones&materia=<?php echo $detalle['materia_id']; ?>&seccion=<?php echo $detalle['seccion_id']; ?>&lapso=<?php echo $detalle['lapso']; ?>" 
+                                       class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-edit mr-1"></i> Calificar
+                                    </a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- DETALLE DE ESTUDIANTES POR SECCIÓN (MANTENIDO ASÍ) -->
+            <?php if (isset($detalle_estudiantes['detalle']) && count($detalle_estudiantes['detalle']) > 0): ?>
+            <div class="card mt-3 card-dashboard">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user-graduate mr-2"></i>Distribución de Estudiantes por Sección
+                        <span class="badge badge-light float-right"><?php echo $detalle_estudiantes['total']; ?> estudiantes</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <?php foreach ($detalle_estudiantes['detalle'] as $seccion): ?>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-1 text-primary"><?php echo $seccion['total']; ?></h3>
+                                <h6 class="mb-1"><?php echo htmlspecialchars($seccion['grado']); ?> - <?php echo htmlspecialchars($seccion['seccion']); ?></h6>
+                                <small class="text-muted">estudiantes</small>
+                                <div class="mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                                            onclick="verEstudiantesSeccion(<?php echo $seccion['seccion_id']; ?>)">
+                                        <i class="fas fa-eye mr-1"></i> Ver
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
                     </div>
                 </div>
             </div>
             <?php endif; ?>
 
-            <style>
-            .card {
-                border: none;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            <!-- HORARIOS DEL DOCENTE (MANTENIDO ASÍ) -->
+            <?php if (isset($horarios_docente['horarios']) && count($horarios_docente['horarios']) > 0): ?>
+            <div class="card mt-3 card-dashboard">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-calendar-alt mr-2"></i>Mis Horarios de Clase
+                        <span class="badge badge-light float-right"><?php echo $horarios_docente['total']; ?> horario(s)</span>
+                    </h5>
+                    <small class="d-block mt-1">
+                        <i class="fas fa-info-circle mr-1"></i> Estos son los días y horarios en que debe impartir clases
+                    </small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <?php foreach ($horarios_docente['horarios'] as $dia => $horarios_dia): ?>
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card border-primary">
+                                <div class="card-header bg-light text-primary">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-calendar-day mr-1"></i><?php echo $dia; ?>
+                                        <span class="badge badge-primary float-right"><?php echo count($horarios_dia); ?></span>
+                                    </h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="list-group list-group-flush">
+                                        <?php foreach ($horarios_dia as $horario): ?>
+                                        <div class="list-group-item">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h6 class="mb-1"><?php echo htmlspecialchars($horario['grado'] ?? 'N/A'); ?> - <?php echo htmlspecialchars($horario['nombre_seccion'] ?? 'N/A'); ?></h6>
+                                                <small class="text-muted"><?php echo $horario['aula'] ?? 'N/A'; ?></small>
+                                            </div>
+                                            <p class="mb-1 small">
+                                                <i class="fas fa-clock mr-1"></i>
+                                                <?php echo $horario['fecha_inicio_formatted']; ?> 
+                                                <?php if ($horario['fecha_fin_formatted']): ?>
+                                                - <?php echo $horario['fecha_fin_formatted']; ?>
+                                                <?php endif; ?>
+                                            </p>
+                                            <small class="text-muted">
+                                                <i class="fas fa-check-circle text-success mr-1"></i>
+                                                <?php echo $horario['estado'] == 1 ? 'Activo' : 'Inactivo'; ?>
+                                            </small>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <!-- MENSAJES DE ALERTA (MANTENIDO) -->
+            <div class="mt-3">
+                <?php if (($cursos_docente['total_cursos'] ?? 0) == 0): ?>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        <strong>Atención:</strong> No tiene cursos asignados en este período.
+                        <small class="d-block mt-1">Contacte al administrador para asignaciones.</small>
+                    </div>
+                <?php elseif (($estudiantes_docente['total_estudiantes'] ?? 0) > 0 && ($calificaciones_pendientes['pendientes'] ?? 0) == 0): ?>
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle mr-1"></i>
+                        <strong>Al día:</strong> Todas las calificaciones están registradas para el <?php echo $calificaciones_pendientes['nombre_lapso'] ?? 'lapso actual'; ?>.
+                        <?php if (isset($calificaciones_pendientes['lapso_actual']) && $calificaciones_pendientes['lapso_actual'] < 8): ?>
+                        <small class="d-block mt-1">
+                            <i class="fas fa-arrow-right"></i> Podrá avanzar al siguiente lapso cuando esté habilitado.
+                        </small>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+            
+            <script>
+            function verEstudiantesSeccion(idSeccion) {
+                // Redirigir a página de estudiantes de la sección
+                window.location.href = '?page=estudiantes_seccion&id=' + idSeccion;
             }
             
-            .card-header {
-                border-radius: 8px 8px 0 0 !important;
+            function toggleCursos() {
+                var detalle = document.getElementById('cursosDetalle');
+                var icon = document.getElementById('cursosIcon');
+                if (detalle.style.display === 'none') {
+                    detalle.style.display = 'block';
+                    icon.className = 'fas fa-chevron-up float-right mr-2';
+                } else {
+                    detalle.style.display = 'none';
+                    icon.className = 'fas fa-chevron-down float-right mr-2';
+                }
             }
             
-            .badge {
-                font-size: 0.75em;
-                padding: 0.4em 0.8em;
+            function toggleCalificaciones() {
+                var detalle = document.getElementById('calificacionesDetalle');
+                var icon = document.getElementById('calificacionesIcon');
+                if (detalle.style.display === 'none') {
+                    detalle.style.display = 'block';
+                    icon.className = 'fas fa-chevron-up float-right mr-2';
+                } else {
+                    detalle.style.display = 'none';
+                    icon.className = 'fas fa-chevron-down float-right mr-2';
+                }
             }
+            </script>
+           
             
-            .table th {
-                background-color: #f8f9fa;
-                border-bottom: 2px solid #dee2e6;
+            <script>
+            function verEstudiantesSeccion(idSeccion) {
+                // Redirigir a página de estudiantes de la sección
+                window.location.href = '?page=estudiantes_seccion&id=' + idSeccion;
             }
-            
-            .table td {
-                border-top: 1px solid #dee2e6;
-            }
-            
-            .btn-outline-danger {
-                border-color: #dc3545;
-                color: #dc3545;
-            }
-            
-            .btn-outline-danger:hover {
-                background-color: #dc3545;
-                color: white;
-            }
-            
-            h2 {
-                font-size: 2.5rem;
-                font-weight: bold;
-            }
-            </style>
+            </script>
             
             <hr>
         <?php } ?>
-
         <!-- Vista para el administrador -->  
         <?php if ($rol_sesion_usuario == "ADMINISTRADOR") { ?>  
             <div class="row"> 
@@ -1475,6 +1573,11 @@ include ('../layout/mensajes.php');
     /* Estilos adicionales para mejorar la apariencia */
     .card-dashboard {
         transition: all 0.3s ease;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        border: none;
+        height: 100%;
     }
     
     .icon-dashboard {
