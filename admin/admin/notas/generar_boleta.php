@@ -57,8 +57,21 @@ try {
     $stmt->execute($params);
     $notas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // === NUEVO: OBTENER NOTAS DE RECUPERACIÓN APROBADAS (≥10) ===
+    $sql_recuperaciones = "SELECT m.nombre_materia, r.calificacion, r.tipo, r.intento
+                           FROM recuperaciones r
+                           JOIN materias m ON r.id_materia = m.id_materia
+                           WHERE r.id_estudiante = ? 
+                           AND r.estado = 'revision'
+                           AND r.calificacion >= 10
+                           ORDER BY r.intento DESC"; // Ordenar para tomar el intento más reciente
+    $stmt_rec = $pdo->prepare($sql_recuperaciones);
+    $stmt_rec->execute([$id_estudiante]);
+    $recuperaciones = $stmt_rec->fetchAll(PDO::FETCH_ASSOC);
+
     // === ORGANIZAR NOTAS ===
     $notas_por_materia = [];
+    $recuperaciones_aprobadas = []; // NUEVO: para almacenar solo recuperaciones aprobadas (≥10)
     $promedios_lapsos = [];
     $total_general = 0;
     $total_materias = 0;
@@ -76,33 +89,54 @@ try {
         $promedios_lapsos[$id_lapso]['count']++;
     }
 
+    // NUEVO: Procesar solo recuperaciones APROBADAS (≥10)
+    foreach ($recuperaciones as $rec) {
+        $materia = $rec['nombre_materia'];
+        $calificacion = $rec['calificacion'];
+        
+        // Solo incluir si la calificación es ≥10
+        if ($calificacion >= 10) {
+            // Tomar la nota redondeada
+            $nota_redondeada = round($calificacion);
+            $recuperaciones_aprobadas[$materia] = $nota_redondeada;
+        }
+    }
+
     // === PDF CONFIG ===
     $pdf = new TCPDF('L', PDF_UNIT, 'A4', true, 'UTF-8', false);
+    
+    // DESACTIVAR COMPLETAMENTE HEADERS Y FOOTERS
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    
     $pdf->SetCreator('Sistema Académico');
     $pdf->SetAuthor('U.E.Roberto Martinez Centeno');
     $pdf->SetTitle('Boletín de Rendimiento Escolar');
-    $pdf->SetMargins(15, 18, 15);
+    $pdf->SetMargins(15, 15, 15);
+    $pdf->SetAutoPageBreak(true, 15);
     $pdf->AddPage();
 
     // === ENCABEZADO ===
-    if (file_exists('logos/logo.png')) $pdf->Image('logos/logo.png', 15, 12, 20); 
-    if (file_exists('logos/ministerio.png')) $pdf->Image('logos/ministerio.png', 245, 14, 35); 
+    if (file_exists('logos/logo.png')) $pdf->Image('logos/logo.png', 15, 10, 20);
+    if (file_exists('logos/ministerio.png')) $pdf->Image('logos/ministerio.png', 245, 12, 35);
 
     $anio_escolar = (date('n') >= 9) ? date('Y') . '-' . (date('Y') + 1) : (date('Y') - 1) . '-' . date('Y');
 
     $pdf->SetFont('helvetica', 'B', 10);
-    $pdf->SetY(12); 
+    $pdf->SetY(10);
     $pdf->Cell(0, 5, 'REPÚBLICA BOLIVARIANA DE VENEZUELA', 0, 1, 'C');
     $pdf->Cell(0, 5, 'MINISTERIO DEL PODER POPULAR PARA LA EDUCACIÓN', 0, 1, 'C');
     $pdf->Cell(0, 5, 'U.E.N. ROBERTO MARTINEZ CENTENO', 0, 1, 'C');
     $pdf->SetFont('helvetica', 'B', 12);
     $pdf->Cell(0, 6, 'BOLETÍN DE RENDIMIENTO DEL AÑO ESCOLAR ' . $anio_escolar, 0, 1, 'C');
     
-    // AJUSTE CLAVE: Se sube la línea de 30 a 27 para que no tape el título
-    $pdf->Line(15, 27, 282, 27); 
+    // LÍNEA DEBAJO DEL TÍTULO (no encima del logo)
+    // Calculamos la posición Y después del título: 10 + (5*3) + 6 = 31
+    // Añadimos 2mm de espacio: 33
+    $pdf->Line(15, 33, 282, 33);
 
     // === DATOS DEL ESTUDIANTE ===
-    $pdf->SetY(35);
+    $pdf->SetY(40); // Ajustamos para dejar espacio después de la línea
     $pdf->SetFont('helvetica', 'B', 12);
     $pdf->SetFillColor(220, 230, 240);
     $pdf->Cell(0, 8, 'DATOS DEL ESTUDIANTE', 0, 1, 'C', true);
@@ -136,36 +170,47 @@ try {
     }
 
     $mostrar_definitiva = count($lapsos_visibles) === 3;
+    $mostrar_revision = !empty($recuperaciones_aprobadas);
+    
     $num_columnas_datos = count($lapsos_visibles) * 2;
-    $total_columnas = 1 + $num_columnas_datos + ($mostrar_definitiva ? 1 : 0);
+    $total_columnas = 1 + $num_columnas_datos + ($mostrar_definitiva ? 1 : 0) + ($mostrar_revision ? 1 : 0);
 
-    // Ajustamos anchos para los encabezados y celdas de datos
     $ancho_col_materias = 22; 
     $ancho_total_lapsos_y_def = 100 - $ancho_col_materias; 
 
-    $ancho_columna_definitiva = $mostrar_definitiva ? ($ancho_total_lapsos_y_def * 0.15) : 0; 
-    $ancho_restante_lapsos = $mostrar_definitiva ? ($ancho_total_lapsos_y_def - $ancho_columna_definitiva) : $ancho_total_lapsos_y_def;
+    $ancho_columna_definitiva = $mostrar_definitiva ? ($ancho_total_lapsos_y_def * 0.15) : 0;
+    $ancho_columna_revision = $mostrar_revision ? ($ancho_total_lapsos_y_def * 0.15) : 0;
+    $ancho_restante_lapsos = $ancho_total_lapsos_y_def - $ancho_columna_definitiva - $ancho_columna_revision;
     
     $ancho_lapso_single_col = $num_columnas_datos > 0 ? ($ancho_restante_lapsos / $num_columnas_datos) : 0; 
     
-    // Color de fondo azul claro para las filas de resumen
     $color_azul_claro = '#e6f2ff'; 
 
     $html = '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;">
               <tr>
                 <th style="background-color:#145388;color:white;padding:3px;text-align:center;font-size:8px;width:' . $ancho_col_materias . '%;">MATERIAS</th>';
+    
     foreach ($lapsos_visibles as $lapso) {
         $html .= '<th style="background-color:#145388;color:white;padding:3px;text-align:center;font-size:8px;width:' . $ancho_lapso_single_col . '%;">' . strtoupper(str_replace(' ', '<br>', $lapso['nombre_momento'])) . '</th>
                   <th style="background-color:#145388;color:white;padding:3px;text-align:center;font-size:8px;width:' . $ancho_lapso_single_col . '%;">INASISTENCIAS</th>';
     }
+    
     if ($mostrar_definitiva) {
-        $html .= '<th style="background-color:#145388;color:white;padding:3px;text-align:center;font-size:8px;width:' . $ancho_columna_definitiva . '%;">NOTAS DEFINITIVAS</th>';
+        $html .= '<th style="background-color:#145388;color:white;padding:3px;text-align:center;font-size:8px;width:' . $ancho_columna_definitiva . '%;">NOTAS<br>DEFINITIVAS</th>';
     }
+    
+    if ($mostrar_revision) {
+        $html .= '<th style="background-color:#145388;color:white;padding:3px;text-align:center;font-size:8px;width:' . $ancho_columna_revision . '%;">NOTAS<br>REVISIÓN</th>';
+    }
+    
     $html .= '</tr>';
 
     foreach ($notas_por_materia as $materia => $notas_lapsos) {
         $html .= '<tr><td style="padding:5px;border:1px solid #e6f2ff;text-align:left;width:' . $ancho_col_materias . '%;">' . htmlspecialchars($materia) . '</td>';
         $suma_materia = 0; $cuenta_materia = 0;
+        $tiene_revision_aprobada = false;
+        $nota_revision_mostrar = '-';
+        
         foreach ($lapsos_visibles as $lapso) {
             $id = $lapso['id_lapso'];
             $nota = isset($notas_lapsos[$id]) ? number_format($notas_lapsos[$id], 2) : '-';
@@ -174,24 +219,41 @@ try {
             $html .= '<td style="padding:5px;border:1px solid #e6f2ff;text-align:center;width:' . $ancho_lapso_single_col . '%;">' . $nota . '</td>
                       <td style="padding:5px;border:1px solid #e6f2ff;text-align:center;width:' . $ancho_lapso_single_col . '%;"></td>';
         }
+        
         if ($mostrar_definitiva) {
             $nota_def = $cuenta_materia ? round($suma_materia / $cuenta_materia) : '-';
+            
+            if (isset($recuperaciones_aprobadas[$materia])) {
+                $tiene_revision_aprobada = true;
+                $nota_revision_mostrar = $recuperaciones_aprobadas[$materia];
+            }
+            
             $total_general += ($nota_def !== '-') ? $nota_def : 0;
             $total_materias += ($nota_def !== '-') ? 1 : 0;
             $html .= '<td style="padding:5px;border:1px solid #cce0ff;text-align:center;font-weight:bold;background-color:#e8f5e9;width:' . $ancho_columna_definitiva . '%;">' . $nota_def . '</td>';
         }
+        
+        if ($mostrar_revision) {
+            $revision_bg = $tiene_revision_aprobada ? '#e8f5e9' : '#ffffff';
+            $revision_text = $tiene_revision_aprobada ? $nota_revision_mostrar : '-';
+            $html .= '<td style="padding:5px;border:1px solid #cce0ff;text-align:center;font-weight:bold;background-color:' . $revision_bg . ';width:' . $ancho_columna_revision . '%;">' . $revision_text . '</td>';
+        }
+        
         $html .= '</tr>';
     }
 
     // === FILA DE SEPARACIÓN ===
     $html .= '<tr>';
     for ($i = 0; $i < $total_columnas; $i++) {
-        $current_width = ($i == 0) ? $ancho_col_materias : (($i == $total_columnas - 1 && $mostrar_definitiva) ? $ancho_columna_definitiva : $ancho_lapso_single_col);
+        $current_width = ($i == 0) ? $ancho_col_materias : 
+                        (($i == $total_columnas - 2 && $mostrar_revision) ? $ancho_columna_revision : 
+                        (($i == $total_columnas - 1 && $mostrar_definitiva) ? $ancho_columna_definitiva : 
+                        $ancho_lapso_single_col));
         $html .= '<td style="padding:1px;border-top:1px solid #cce0ff;border-bottom:1px solid #e6f2ff;background-color:#ffffff;width:' . $current_width . '%;"></td>';
     }
     $html .= '</tr>';
 
-    // === PROMEDIO POR MOMENTO (Pintado de azul claro) ===
+    // === PROMEDIO POR MOMENTO ===
     $html .= '<tr><td style="font-size:12px;padding:5px;border:1px solid #cce0ff;text-align:left;font-weight:bold;width:' . $ancho_col_materias . '%;background-color:' . $color_azul_claro . ';">Promedio de Calificaciones</td>';
     foreach ($lapsos_visibles as $lapso) {
         $id = $lapso['id_lapso'];
@@ -200,12 +262,12 @@ try {
                   <td style="font-size:10px;padding:5px;border:1px solid #cce0ff;text-align:center;width:' . $ancho_lapso_single_col . '%;background-color:' . $color_azul_claro . ';"></td>';
     }
     if ($mostrar_definitiva) $html .= '<td style="font-size:10px;padding:5px;border:1px solid #cce0ff;width:' . $ancho_columna_definitiva . '%;background-color:' . $color_azul_claro . ';"></td>';
+    if ($mostrar_revision) $html .= '<td style="font-size:10px;padding:5px;border:1px solid #cce0ff;width:' . $ancho_columna_revision . '%;background-color:' . $color_azul_claro . ';"></td>';
     $html .= '</tr>';
 
-    // === MATERIA PENDIENTE (Pintada de azul claro y con líneas de cierre) ===
+    // === MATERIA PENDIENTE ===
     $html .= '<tr><td style="font-size:12px;padding:5px;border:1px solid #cce0ff;text-align:left;font-weight:bold;width:' . $ancho_col_materias . '%;background-color:' . $color_azul_claro . ';">Materia Pendiente</td>';
     
-    // Celdas vacías para cerrar la línea
     foreach ($lapsos_visibles as $lapso) {
         $html .= '<td style="font-size:10px;padding:5px;border:1px solid #cce0ff;width:' . $ancho_lapso_single_col . '%;background-color:' . $color_azul_claro . ';"></td>
                   <td style="font-size:10px;padding:5px;border:1px solid #cce0ff;width:' . $ancho_lapso_single_col . '%;background-color:' . $color_azul_claro . ';"></td>';
@@ -213,12 +275,15 @@ try {
     if ($mostrar_definitiva) {
         $html .= '<td style="font-size:10px;padding:5px;border:1px solid #cce0ff;width:' . $ancho_columna_definitiva . '%;background-color:' . $color_azul_claro . ';"></td>';
     }
+    if ($mostrar_revision) {
+        $html .= '<td style="font-size:10px;padding:5px;border:1px solid #cce0ff;width:' . $ancho_columna_revision . '%;background-color:' . $color_azul_claro . ';"></td>';
+    }
     $html .= '</tr>';
 
     $html .= '</table>';
     $pdf->writeHTML($html, true, false, true, false, '');
 
-    // === PROMEDIO FINAL (Vuelto a Cell() de TCPDF) ===
+    // === PROMEDIO FINAL ===
     if ($mostrar_definitiva && $total_materias > 0) {
         $promedio_final = $total_general / $total_materias;
         $pdf->SetFont('helvetica', 'B', 12);
@@ -226,8 +291,8 @@ try {
         $pdf->Cell(0, 8, 'PROMEDIO FINAL DEL AÑO: ' . number_format($promedio_final, 2), 0, 1, 'C', true);
     }
 
-    // === METADATOS DE GENERACIÓN (NUEVA LÓGICA) ===
-    $fecha_emision = date('d/m/Y h:i A'); // Formato día/mes/año hora:min AM/PM
+    // === METADATOS DE GENERACIÓN ===
+    $fecha_emision = date('d/m/Y h:i A');
     $pdf->SetY($pdf->GetY() + 5); 
     $pdf->SetFont('helvetica', '', 9);
     
@@ -237,7 +302,6 @@ try {
             Fecha de emisión: ' . $fecha_emision . '
         </div>';
     $pdf->writeHTML($html_metadata, true, false, true, false, '');
-
 
     // === PIE CON QR Y ARTÍCULO 109 ===
     $qrContent = 'ID:' . $id_estudiante . '|' . $estudiante['cedula'] . '|' . 
@@ -275,4 +339,3 @@ try {
             <p>' . htmlspecialchars($e->getMessage()) . '</p>
           </div>';
 }
-?>
