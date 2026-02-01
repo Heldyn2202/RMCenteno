@@ -14,22 +14,9 @@ $stmt = $pdo->prepare("SELECT CONCAT(nombres,' ',apellidos) AS nombre_profesor F
 $stmt->execute([$id_profesor]);
 $prof = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Listas
-// Nota: ordenamos por g.id_grado para asegurar el orden natural (1er año, 2do, ...) y por nombre de sección (A, B, C...)
-$secciones = $pdo->query("
-    SELECT s.id_seccion, s.nombre_seccion, g.grado AS grado_text
-    FROM secciones s
-    INNER JOIN grados g ON s.id_grado = g.id_grado
-    WHERE s.estado = 1
-    ORDER BY g.id_grado, s.nombre_seccion
-")->fetchAll(PDO::FETCH_ASSOC);
-
-// Materias (sin cambios)
-$materias = $pdo->query("SELECT id_materia, nombre_materia FROM materias WHERE estado = 1 ORDER BY nombre_materia")->fetchAll(PDO::FETCH_ASSOC);
-
-// Gestión activa: tomamos la gestión activa más reciente (según tu condición de "estado = 1")
+// PRIMERO: Obtener la gestión activa
 $gestion_activa = $pdo->query("
-    SELECT id_gestion, CONCAT('Periodo ', YEAR(desde), ' - ', YEAR(hasta)) AS periodo
+    SELECT id_gestion, desde, hasta, CONCAT('Periodo ', YEAR(desde), ' - ', YEAR(hasta)) AS periodo
     FROM gestiones
     WHERE estado = 1
     ORDER BY desde DESC
@@ -37,22 +24,59 @@ $gestion_activa = $pdo->query("
 ")->fetch(PDO::FETCH_ASSOC);
 
 if (!$gestion_activa) {
-    // Manejo simple si no hay gestión activa: evitar que el formulario se rompa
-    $gestion_activa = ['id_gestion' => '', 'periodo' => 'No hay período activo'];
+    // Si no hay gestión activa, mostrar mensaje y bloquear el formulario
+    echo "<script>
+        Swal.fire({
+            icon: 'warning',
+            title: 'Gestión no activa',
+            text: 'No hay una gestión académica activa. Active una gestión primero.',
+            confirmButtonText: 'Aceptar'
+        }).then(() => {
+            window.location.href = 'listar_asignaciones.php';
+        });
+    </script>";
+    include('../../admin/layout/parte2.php');
+    exit;
 }
 
-// Asignaciones actuales
+// SEGUNDO: Obtener secciones SOLO de la gestión activa - CORREGIDO: cambiado g.grado por gr.grado
+$secciones = $pdo->prepare("
+    SELECT s.id_seccion, s.nombre_seccion, gr.grado AS grado_text
+    FROM secciones s
+    INNER JOIN grados gr ON s.id_grado = gr.id_grado
+    WHERE s.estado = 1
+    AND s.id_gestion = ?
+    ORDER BY gr.id_grado, s.nombre_seccion
+");
+$secciones->execute([$gestion_activa['id_gestion']]);
+$secciones = $secciones->fetchAll(PDO::FETCH_ASSOC);
+
+// Agrupar secciones por grado para Select2
+$seccionesAgrupadas = [];
+foreach ($secciones as $s) {
+    $grado = $s['grado_text'];
+    $nombreSeccion = trim($s['nombre_seccion']);
+    $seccionesAgrupadas[$grado][] = [
+        'id_seccion' => $s['id_seccion'],
+        'nombre_seccion' => $nombreSeccion
+    ];
+}
+
+// Materias (sin cambios)
+$materias = $pdo->query("SELECT id_materia, nombre_materia FROM materias WHERE estado = 1 ORDER BY nombre_materia")->fetchAll(PDO::FETCH_ASSOC);
+
+// Asignaciones actuales del profesor - CORREGIDO: cambiado gr.grado
 $sql_asig = "
 SELECT CONCAT(gr.grado, ' - ', s.nombre_seccion) AS grado_seccion,
        m.nombre_materia,
-       CONCAT('Periodo ', YEAR(g.desde), ' - ', YEAR(g.hasta)) AS periodo
+       CONCAT('Periodo ', YEAR(ges.desde), ' - ', YEAR(ges.hasta)) AS periodo
 FROM asignaciones_profesor ap
 JOIN secciones s ON ap.id_seccion = s.id_seccion
 JOIN grados gr ON s.id_grado = gr.id_grado
 JOIN materias m ON ap.id_materia = m.id_materia
-JOIN gestiones g ON ap.id_gestion = g.id_gestion
+JOIN gestiones ges ON ap.id_gestion = ges.id_gestion
 WHERE ap.id_profesor = ?
-ORDER BY g.desde DESC, gr.grado, s.nombre_seccion, m.nombre_materia
+ORDER BY ges.desde DESC, gr.id_grado, s.nombre_seccion, m.nombre_materia
 ";
 $stmt = $pdo->prepare($sql_asig);
 $stmt->execute([$id_profesor]);
@@ -95,6 +119,13 @@ foreach ($asignaciones_actuales as $a) {
           <div class="mb-3">
             <label><strong>Profesor:</strong></label>
             <input class="form-control" value="<?= htmlspecialchars($prof['nombre_profesor']) ?>" readonly>
+          </div>
+
+          <!-- Mostrar información de la gestión activa -->
+          <div class="alert alert-info mb-4">
+            <strong>Gestión Activa:</strong> <?= htmlspecialchars($gestion_activa['periodo']) ?>
+            <br>
+            <small>Mostrando secciones disponibles para esta gestión únicamente.</small>
           </div>
 
           <!-- Asignaciones actuales (acordeón por período) -->
@@ -144,47 +175,43 @@ foreach ($asignaciones_actuales as $a) {
                   <select name="id_seccion[]" class="form-control selectSeccion" required>
                     <option value="">Seleccione una sección</option>
                     <?php
-                    // Mostrar optgroups agrupadas por grado; OPTION TEXT incluye grado para que se vea al seleccionar
-                    $seccionesAgrupadas = [];
-                    foreach ($secciones as $s) {
-                        $grado = $s['grado_text'];
-                        $nombreSeccion = trim($s['nombre_seccion']);
-                        $seccionesAgrupadas[$grado][] = [
-                            'id_seccion' => $s['id_seccion'],
-                            'nombre_seccion' => $nombreSeccion
-                        ];
-                    }
-                    foreach ($seccionesAgrupadas as $grado => $lista) {
-                        echo "<optgroup label='" . htmlspecialchars($grado) . "'>";
-                        foreach ($lista as $sec) {
-                            // Mostrar grado en el texto de la opción para que Select2 lo refleje al seleccionar
-                            $labelOption = htmlspecialchars($grado . ' - Sección ' . $sec['nombre_seccion']);
-                            echo "<option value='{$sec['id_seccion']}'>{$labelOption}</option>";
-                        }
-                        echo "</optgroup>";
-                    }
-                    ?>
+                    if (empty($seccionesAgrupadas)): ?>
+                      <option value="" disabled>No hay secciones activas en esta gestión</option>
+                    <?php else: 
+                      foreach ($seccionesAgrupadas as $grado => $lista): ?>
+                        <optgroup label="<?= htmlspecialchars($grado) ?>">
+                          <?php foreach ($lista as $sec): 
+                            $labelOption = htmlspecialchars($grado . ' - Sección ' . $sec['nombre_seccion']); ?>
+                            <option value="<?= $sec['id_seccion'] ?>"><?= $labelOption ?></option>
+                          <?php endforeach; ?>
+                        </optgroup>
+                      <?php endforeach;
+                    endif; ?>
                   </select>
                 </div>
 
                 <div class="col-md-5">
                   <label><strong>Materias</strong></label>
                   <div class="materias-list" style="max-height:220px; overflow:auto; border:1px solid #e3e3e3; padding:8px; border-radius:6px;">
-                    <?php foreach ($materias as $m): ?>
-                      <div class="form-check">
-                        <!-- data-mat-id para reindexar luego -->
-                        <input class="form-check-input" type="checkbox" data-mat-id="<?= $m['id_materia'] ?>">
-                        <label class="form-check-label"><?= htmlspecialchars($m['nombre_materia']) ?></label>
-                      </div>
-                    <?php endforeach; ?>
+                    <?php if (empty($materias)): ?>
+                      <p class="text-muted">No hay materias disponibles</p>
+                    <?php else: 
+                      foreach ($materias as $m): ?>
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" data-mat-id="<?= $m['id_materia'] ?>">
+                          <label class="form-check-label"><?= htmlspecialchars($m['nombre_materia']) ?></label>
+                        </div>
+                      <?php endforeach; 
+                    endif; ?>
                   </div>
                 </div>
 
                 <div class="col-md-3">
                   <label><strong>Gestión (activa)</strong></label>
-                  <!-- Gestión ahora se toma automáticamente: campo oculto con el id y campo de solo lectura para mostrar el periodo -->
+                  <!-- Gestión fija para todas las asignaciones (la gestión activa) -->
                   <input type="hidden" name="id_gestion[]" value="<?= htmlspecialchars($gestion_activa['id_gestion']) ?>">
                   <input type="text" class="form-control" value="<?= htmlspecialchars($gestion_activa['periodo']) ?>" readonly>
+                  <small class="text-muted">Todas las asignaciones se registrarán en esta gestión</small>
                 </div>
 
                 <div class="col-md-1 text-center">
@@ -195,9 +222,20 @@ foreach ($asignaciones_actuales as $a) {
             </div>
 
             <div class="d-flex justify-content-between">
-              <button type="button" id="agregarFila" class="btn btn-success"><i class="fas fa-plus"></i> Agregar otra asignación</button>
-              <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar todas las asignaciones</button>
+              <button type="button" id="agregarFila" class="btn btn-success" <?= empty($secciones) ? 'disabled' : '' ?>>
+                <i class="fas fa-plus"></i> Agregar otra asignación
+              </button>
+              <button type="submit" class="btn btn-primary" <?= empty($secciones) ? 'disabled' : '' ?>>
+                <i class="fas fa-save"></i> Guardar todas las asignaciones
+              </button>
             </div>
+            
+            <?php if (empty($secciones)): ?>
+              <div class="alert alert-warning mt-3">
+                <i class="fas fa-exclamation-triangle"></i> No hay secciones disponibles en la gestión activa. 
+                Por favor, cree secciones primero o active una gestión con secciones.
+              </div>
+            <?php endif; ?>
           </form>
 
           <!-- Template oculto (limpio) para nuevas filas -->
@@ -208,28 +246,32 @@ foreach ($asignaciones_actuales as $a) {
                 <select name="id_seccion[]" class="form-control selectSeccion" required>
                   <option value="">Seleccione una sección</option>
                   <?php
-                  // Reutilizamos las optgroups para el template; la OPTION TEXT incluye grado
-                  foreach ($seccionesAgrupadas as $grado => $lista) {
-                      echo "<optgroup label='" . htmlspecialchars($grado) . "'>";
-                      foreach ($lista as $sec) {
-                          $labelOption = htmlspecialchars($grado . ' - Sección ' . $sec['nombre_seccion']);
-                          echo "<option value='{$sec['id_seccion']}'>{$labelOption}</option>";
-                      }
-                      echo "</optgroup>";
-                  }
-                  ?>
+                  if (!empty($seccionesAgrupadas)):
+                    foreach ($seccionesAgrupadas as $grado => $lista): ?>
+                      <optgroup label="<?= htmlspecialchars($grado) ?>">
+                        <?php foreach ($lista as $sec): 
+                          $labelOption = htmlspecialchars($grado . ' - Sección ' . $sec['nombre_seccion']); ?>
+                          <option value="<?= $sec['id_seccion'] ?>"><?= $labelOption ?></option>
+                        <?php endforeach; ?>
+                      </optgroup>
+                    <?php endforeach;
+                  else: ?>
+                    <option value="" disabled>No hay secciones activas en esta gestión</option>
+                  <?php endif; ?>
                 </select>
               </div>
 
               <div class="col-md-5">
                 <label><strong>Materias</strong></label>
                 <div class="materias-list" style="max-height:220px; overflow:auto; border:1px solid #e3e3e3; padding:8px; border-radius:6px;">
-                  <?php foreach ($materias as $m): ?>
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" data-mat-id="<?= $m['id_materia'] ?>">
-                      <label class="form-check-label"><?= htmlspecialchars($m['nombre_materia']) ?></label>
-                    </div>
-                  <?php endforeach; ?>
+                  <?php if (!empty($materias)):
+                    foreach ($materias as $m): ?>
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" data-mat-id="<?= $m['id_materia'] ?>">
+                        <label class="form-check-label"><?= htmlspecialchars($m['nombre_materia']) ?></label>
+                      </div>
+                    <?php endforeach; 
+                  endif; ?>
                 </div>
               </div>
 
@@ -255,150 +297,155 @@ foreach ($asignaciones_actuales as $a) {
 <script>
 $(function(){
 
-  // Inicializar Select2 en todas las selects .selectSeccion existentes
-  function initSelect2(context) {
-    context = context || $('.selectSeccion');
-    context.select2({
-      placeholder: "Buscar o seleccionar una sección",
-      width: '100%'
-    });
-  }
-
-  // Reindexar filas: asignar nombres e ids a checkboxes y labels
-  function reindexFilas() {
-    $('#contenedorAsignaciones .asignacion-item').each(function(index){
-      // checkboxes de materias dentro de esta fila
-      $(this).find('.materias-list .form-check-input').each(function(){
-        var matId = $(this).data('mat-id');
-        var newName = 'id_materia[' + index + '][]';
-        var newId = 'mat_' + index + '_' + matId;
-        $(this).attr('name', newName);
-        $(this).attr('id', newId);
-        $(this).closest('.form-check').find('label').attr('for', newId);
-      });
-    });
-  }
-
-  // Inicialización inicial
-  initSelect2();
-  reindexFilas();
-
-  // Agregar nueva fila desde template
-  $('#agregarFila').on('click', function(){
-    var tpl = $('#tplAsignacion').html();
-    $('#contenedorAsignaciones').append(tpl);
-    var newRow = $('#contenedorAsignaciones .asignacion-item').last();
-
-    // Inicializar Select2 solo en el nuevo select
-    initSelect2(newRow.find('.selectSeccion'));
-
-    // Reindexar nombres/ids para checkboxes
-    reindexFilas();
-    // opcional: hacer scroll hacia la nueva fila
-    $('html, body').animate({ scrollTop: newRow.offset().top - 100 }, 300);
-  });
-
-  // Eliminar fila
-  $(document).on('click', '.eliminarFila', function(){
-    if ($('#contenedorAsignaciones .asignacion-item').length > 1) {
-      $(this).closest('.asignacion-item').remove();
-      reindexFilas();
-    } else {
-      Swal.fire({ icon: 'info', title: 'Al menos una fila', text: 'Debe existir al menos una asignación.' });
-    }
-  });
-
-  // Toggle acordeón de asignaciones actuales por período (con rotación de flecha)
-  document.querySelectorAll('.period-toggle').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var idx = this.getAttribute('data-index');
-      var content = document.getElementById('period-content-' + idx);
-      if (content) {
-        content.classList.toggle('d-none');
-        this.classList.toggle('open'); // para girar la flecha
-      }
-    });
-  });
-
-  // Submit: validar y enviar por AJAX
-  $('#formAsignaciones').on('submit', function(e){
-    e.preventDefault();
-    reindexFilas();
-
-    var filas = $('#contenedorAsignaciones .asignacion-item');
-    var valido = true;
-    var mensaje = '';
-    var combinado = new Set();
-
-    filas.each(function(i){
-      var seccion = $(this).find('select[name="id_seccion[]"]').val();
-      // ahora la gestión es un input hidden por fila
-      var gestion = $(this).find('input[name="id_gestion[]"]').val();
-      var materias = $(this).find('input[type="checkbox"]:checked').map(function(){ return $(this).val(); }).get();
-
-      // Si las checkboxes no tienen value (no se les puso), usamos data-mat-id como value
-      // Aseguramos que cada checkbox tenga atributo value = data-mat-id (si no lo tiene)
-      $(this).find('input[type="checkbox"]').each(function(){
-        if (!$(this).attr('value')) {
-          $(this).attr('value', $(this).data('mat-id'));
-        }
-      });
-
-      materias = $(this).find('input[type="checkbox"]:checked').map(function(){ return $(this).val(); }).get();
-
-      if (!seccion || !gestion || materias.length === 0) {
-        valido = false;
-        mensaje = 'Todas las filas deben tener Sección, Gestión y al menos una Materia seleccionada.';
-        return false;
-      }
-
-      materias.forEach(function(m){
-        var key = seccion + '-' + gestion + '-' + m;
-        if (combinado.has(key)) {
-          valido = false;
-          mensaje = 'Hay duplicados dentro del formulario (misma sección/gestión/materia).';
-          return false;
-        }
-        combinado.add(key);
-      });
-      if (!valido) return false;
-    });
-
-    if (!valido) {
-      Swal.fire({ icon: 'warning', title: 'Validación', text: mensaje });
-      return;
-    }
-
-    // Enviar datos por AJAX
-    $.ajax({
-      url: 'guardar_asignacion.php',
-      method: 'POST',
-      data: $(this).serialize(),
-      dataType: 'json',
-      success: function(resp){
-        if (!resp) {
-          Swal.fire({ icon: 'error', title: 'Error', text: 'Respuesta inválida del servidor' });
-          return;
-        }
-        // resp.tipo controla icono; el servidor ahora puede devolver mensajes indicando que
-        // la materia ya está asignada a otro profesor (el texto lo incluye).
-        Swal.fire({
-          icon: resp.tipo,
-          title: resp.titulo,
-          html: resp.mensaje,
-          confirmButtonColor: '#6c63ff'
-        }).then(() => {
-          if (resp.tipo === 'success' || resp.tipo === 'warning') {
-            window.location.href = 'listar_asignaciones.php';
-          }
+    // Inicializar Select2 - VERSIÓN CORREGIDA
+    function initSelect2(context) {
+        // Asegurarse de que context sea un objeto jQuery válido
+        var elements = context ? $(context) : $('.selectSeccion');
+        elements.select2({
+            placeholder: "Buscar o seleccionar una sección",
+            width: '100%'
         });
-      },
-      error: function(){
-        Swal.fire({ icon: 'error', title: 'Error AJAX', text: 'Error al comunicarse con el servidor.' });
-      }
+    }
+
+    // Reindexar filas: asignar nombres e ids a checkboxes y labels
+    function reindexFilas() {
+        $('#contenedorAsignaciones .asignacion-item').each(function(index){
+            // checkboxes de materias dentro de esta fila
+            $(this).find('.materias-list .form-check-input').each(function(){
+                var matId = $(this).data('mat-id');
+                var newName = 'id_materia[' + index + '][]';
+                var newId = 'mat_' + index + '_' + matId;
+                $(this).attr('name', newName);
+                $(this).attr('id', newId);
+                $(this).closest('.form-check').find('label').attr('for', newId);
+            });
+        });
+    }
+
+    // Inicialización inicial
+    initSelect2();
+    reindexFilas();
+
+    // Agregar nueva fila desde template
+    $('#agregarFila').on('click', function(){
+        var tpl = $('#tplAsignacion').html();
+        $('#contenedorAsignaciones').append(tpl);
+        var newRow = $('#contenedorAsignaciones .asignacion-item').last();
+
+        // Inicializar Select2 solo en el nuevo select - CORREGIDO
+        initSelect2(newRow.find('.selectSeccion'));
+
+        // Reindexar nombres/ids para checkboxes
+        reindexFilas();
+        // opcional: hacer scroll hacia la nueva fila
+        $('html, body').animate({ scrollTop: newRow.offset().top - 100 }, 300);
     });
 
-  });
+    // Eliminar fila
+    $(document).on('click', '.eliminarFila', function(){
+        if ($('#contenedorAsignaciones .asignacion-item').length > 1) {
+            // Destruir Select2 antes de eliminar para evitar memory leaks
+            $(this).closest('.asignacion-item').find('.selectSeccion').select2('destroy');
+            $(this).closest('.asignacion-item').remove();
+            reindexFilas();
+        } else {
+            Swal.fire({ 
+                icon: 'info', 
+                title: 'Al menos una fila', 
+                text: 'Debe existir al menos una asignación.' 
+            });
+        }
+    });
+
+    // Toggle acordeón de asignaciones actuales por período (con rotación de flecha)
+    document.querySelectorAll('.period-toggle').forEach(function(btn){
+        btn.addEventListener('click', function(){
+            var idx = this.getAttribute('data-index');
+            var content = document.getElementById('period-content-' + idx);
+            if (content) {
+                content.classList.toggle('d-none');
+                this.classList.toggle('open'); // para girar la flecha
+            }
+        });
+    });
+
+    // Submit: validar y enviar por AJAX
+    $('#formAsignaciones').on('submit', function(e){
+        e.preventDefault();
+        reindexFilas();
+
+        var filas = $('#contenedorAsignaciones .asignacion-item');
+        var valido = true;
+        var mensaje = '';
+        var combinado = new Set();
+
+        filas.each(function(i){
+            var seccion = $(this).find('select[name="id_seccion[]"]').val();
+            var gestion = $(this).find('input[name="id_gestion[]"]').val();
+            
+            // Asignar valores a los checkboxes si no los tienen
+            $(this).find('input[type="checkbox"]').each(function(){
+                if (!$(this).attr('value')) {
+                    $(this).attr('value', $(this).data('mat-id'));
+                }
+            });
+
+            var materias = $(this).find('input[type="checkbox"]:checked').map(function(){ 
+                return $(this).val(); 
+            }).get();
+
+            if (!seccion || !gestion || materias.length === 0) {
+                valido = false;
+                mensaje = 'Todas las filas deben tener Sección, Gestión y al menos una Materia seleccionada.';
+                return false;
+            }
+
+            materias.forEach(function(m){
+                var key = seccion + '-' + gestion + '-' + m;
+                if (combinado.has(key)) {
+                    valido = false;
+                    mensaje = 'Hay duplicados dentro del formulario (misma sección/gestión/materia).';
+                    return false;
+                }
+                combinado.add(key);
+            });
+            if (!valido) return false;
+        });
+
+        if (!valido) {
+            Swal.fire({ icon: 'warning', title: 'Validación', text: mensaje });
+            return;
+        }
+
+        // Enviar datos por AJAX
+        $.ajax({
+            url: 'guardar_asignacion.php',
+            method: 'POST',
+            data: $(this).serialize(),
+            dataType: 'json',
+            success: function(resp){
+                if (!resp) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Respuesta inválida del servidor' });
+                    return;
+                }
+                
+                Swal.fire({
+                    icon: resp.tipo,
+                    title: resp.titulo,
+                    html: resp.mensaje,
+                    confirmButtonColor: '#6c63ff'
+                }).then(() => {
+                    if (resp.tipo === 'success' || resp.tipo === 'warning') {
+                        window.location.href = 'listar_asignaciones.php';
+                    }
+                });
+            },
+            error: function(){
+                Swal.fire({ icon: 'error', title: 'Error AJAX', text: 'Error al comunicarse con el servidor.' });
+            }
+        });
+
+    });
 
 });
 </script>

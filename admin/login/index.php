@@ -1,4 +1,28 @@
-<?php  
+ 
+<?php
+// admin/login/index.php
+// Redirección inteligente para evitar página en blanco
+
+session_start();
+
+// URL base
+$base_url = 'http://' . $_SERVER['HTTP_HOST'] . '/heldyn/centeno/';
+
+// Verificar estado de sesión
+if (isset($_SESSION['admin_login']) && $_SESSION['admin_login'] == true) {
+    // Sesión CMS activa
+    header('Location: ' . $base_url . 'admin/admin/portal-cms/index.php');
+    exit;
+} elseif (isset($_SESSION['usuario_id'])) {
+    // Sesión SIGE activa
+    header('Location: ' . $base_url . 'admin/index.php?page=home');
+    exit;
+} else {
+    // No hay sesión, ir al formulario de login
+    header('Location: ' . $base_url . 'admin/login/login.php');
+    exit;
+}
+?>
   /*
 include('../app/config.php');  
 session_start();  

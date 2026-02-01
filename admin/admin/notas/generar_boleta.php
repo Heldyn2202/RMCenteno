@@ -159,14 +159,34 @@ try {
     $pdf->SetFillColor(220, 230, 240);
     $pdf->Cell(0, 8, 'CALIFICACIONES POR MOMENTO', 0, 1, 'C', true);
 
+    // CORRECCIÓN: Crear mapeo de nombres de momentos según los lapsos seleccionados
     $lapsos_visibles = [];
-    $nombres_momentos = ['Primer Momento', 'Segundo Momento', 'Tercer Momento'];
-    $index = 0;
+    
+    // Primero, obtener el orden correcto de los lapsos según fecha_inicio
+    $lapsos_ordenados = [];
     foreach ($lapsos_info as $lapso) {
         if (in_array($lapso['id_lapso'], $lapsos_seleccionados)) {
-            $lapso['nombre_momento'] = $nombres_momentos[$index++] ?? $lapso['nombre_lapso'];
-            $lapsos_visibles[] = $lapso;
+            $lapsos_ordenados[] = $lapso;
         }
+    }
+    
+    // Ordenar por fecha_inicio para determinar correctamente primer, segundo, tercer momento
+    usort($lapsos_ordenados, function($a, $b) {
+        return strtotime($a['fecha_inicio']) - strtotime($b['fecha_inicio']);
+    });
+    
+    // Asignar nombres de momentos según el orden real
+    $nombres_momentos = ['Primer Momento', 'Segundo Momento', 'Tercer Momento'];
+    
+    foreach ($lapsos_ordenados as $index => $lapso) {
+        // Buscar el nombre original del lapso desde la base de datos
+        $sql_nombre_lapso = "SELECT nombre_lapso FROM lapsos WHERE id_lapso = ?";
+        $stmt_nombre = $pdo->prepare($sql_nombre_lapso);
+        $stmt_nombre->execute([$lapso['id_lapso']]);
+        $lapso_nombre = $stmt_nombre->fetch(PDO::FETCH_ASSOC);
+        
+        $lapso['nombre_momento'] = $lapso_nombre['nombre_lapso'] ?? ($nombres_momentos[$index] ?? 'Momento ' . ($index + 1));
+        $lapsos_visibles[] = $lapso;
     }
 
     $mostrar_definitiva = count($lapsos_visibles) === 3;
@@ -191,7 +211,9 @@ try {
                 <th style="background-color:#145388;color:white;padding:3px;text-align:center;font-size:8px;width:' . $ancho_col_materias . '%;">MATERIAS</th>';
     
     foreach ($lapsos_visibles as $lapso) {
-        $html .= '<th style="background-color:#145388;color:white;padding:3px;text-align:center;font-size:8px;width:' . $ancho_lapso_single_col . '%;">' . strtoupper(str_replace(' ', '<br>', $lapso['nombre_momento'])) . '</th>
+        // CORRECCIÓN: Usar el nombre del lapso real en lugar de forzar "Primer Momento"
+        $nombre_momento = $lapso['nombre_momento'];
+        $html .= '<th style="background-color:#145388;color:white;padding:3px;text-align:center;font-size:8px;width:' . $ancho_lapso_single_col . '%;">' . strtoupper(str_replace(' ', '<br>', $nombre_momento)) . '</th>
                   <th style="background-color:#145388;color:white;padding:3px;text-align:center;font-size:8px;width:' . $ancho_lapso_single_col . '%;">INASISTENCIAS</th>';
     }
     
@@ -213,10 +235,22 @@ try {
         
         foreach ($lapsos_visibles as $lapso) {
             $id = $lapso['id_lapso'];
-            $nota = isset($notas_lapsos[$id]) ? number_format($notas_lapsos[$id], 2) : '-';
-            $suma_materia += ($nota !== '-') ? $notas_lapsos[$id] : 0;
-            $cuenta_materia += ($nota !== '-') ? 1 : 0;
-            $html .= '<td style="padding:5px;border:1px solid #e6f2ff;text-align:center;width:' . $ancho_lapso_single_col . '%;">' . $nota . '</td>
+            // CORRECCIÓN: Mostrar nota con 2 decimales pero sin forzar 2 dígitos si es entero
+            $nota = isset($notas_lapsos[$id]) ? $notas_lapsos[$id] : '-';
+            if ($nota !== '-') {
+                // Si la nota es un número entero (ej: 18), mostrarlo como 18, no como 18.00
+                if (intval($nota) == $nota) {
+                    $nota_mostrar = $nota;
+                } else {
+                    $nota_mostrar = number_format($nota, 2);
+                }
+                $suma_materia += $nota;
+                $cuenta_materia += 1;
+                $nota_celda = $nota_mostrar;
+            } else {
+                $nota_celda = '-';
+            }
+            $html .= '<td style="padding:5px;border:1px solid #e6f2ff;text-align:center;width:' . $ancho_lapso_single_col . '%;">' . $nota_celda . '</td>
                       <td style="padding:5px;border:1px solid #e6f2ff;text-align:center;width:' . $ancho_lapso_single_col . '%;"></td>';
         }
         
@@ -230,7 +264,9 @@ try {
             
             $total_general += ($nota_def !== '-') ? $nota_def : 0;
             $total_materias += ($nota_def !== '-') ? 1 : 0;
-            $html .= '<td style="padding:5px;border:1px solid #cce0ff;text-align:center;font-weight:bold;background-color:#e8f5e9;width:' . $ancho_columna_definitiva . '%;">' . $nota_def . '</td>';
+            // CORRECCIÓN: Mostrar nota definitiva sin formato decimal si es entero
+            $nota_def_mostrar = ($nota_def !== '-') ? (intval($nota_def) == $nota_def ? $nota_def : number_format($nota_def, 2)) : '-';
+            $html .= '<td style="padding:5px;border:1px solid #cce0ff;text-align:center;font-weight:bold;background-color:#e8f5e9;width:' . $ancho_columna_definitiva . '%;">' . $nota_def_mostrar . '</td>';
         }
         
         if ($mostrar_revision) {
@@ -257,8 +293,17 @@ try {
     $html .= '<tr><td style="font-size:12px;padding:5px;border:1px solid #cce0ff;text-align:left;font-weight:bold;width:' . $ancho_col_materias . '%;background-color:' . $color_azul_claro . ';">Promedio de Calificaciones</td>';
     foreach ($lapsos_visibles as $lapso) {
         $id = $lapso['id_lapso'];
-        $prom = isset($promedios_lapsos[$id]) && $promedios_lapsos[$id]['count'] > 0 ? number_format($promedios_lapsos[$id]['suma'] / $promedios_lapsos[$id]['count'], 2) : '-';
-        $html .= '<td style="font-size:10px;padding:5px;border:1px solid #cce0ff;text-align:center;font-weight:bold;width:' . $ancho_lapso_single_col . '%;background-color:' . $color_azul_claro . ';">' . $prom . '</td>
+        $prom = isset($promedios_lapsos[$id]) && $promedios_lapsos[$id]['count'] > 0 ? 
+                ($promedios_lapsos[$id]['suma'] / $promedios_lapsos[$id]['count']) : '-';
+        
+        if ($prom !== '-') {
+            // Mostrar promedio con 2 decimales si no es entero
+            $prom_mostrar = (intval($prom) == $prom) ? $prom : number_format($prom, 2);
+        } else {
+            $prom_mostrar = '-';
+        }
+        
+        $html .= '<td style="font-size:10px;padding:5px;border:1px solid #cce0ff;text-align:center;font-weight:bold;width:' . $ancho_lapso_single_col . '%;background-color:' . $color_azul_claro . ';">' . $prom_mostrar . '</td>
                   <td style="font-size:10px;padding:5px;border:1px solid #cce0ff;text-align:center;width:' . $ancho_lapso_single_col . '%;background-color:' . $color_azul_claro . ';"></td>';
     }
     if ($mostrar_definitiva) $html .= '<td style="font-size:10px;padding:5px;border:1px solid #cce0ff;width:' . $ancho_columna_definitiva . '%;background-color:' . $color_azul_claro . ';"></td>';
@@ -339,3 +384,4 @@ try {
             <p>' . htmlspecialchars($e->getMessage()) . '</p>
           </div>';
 }
+?>

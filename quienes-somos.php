@@ -1,10 +1,70 @@
+<?php
+// quienes-somos.php - PORTAL ESCOLAR
+
+// ================= CONEXIÓN A BD =================
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "sige";
+
+$con = new mysqli($servername, $username, $password, $dbname);
+if ($con->connect_error) {
+    die("Error de conexión: " . $con->connect_error);
+}
+// =================================================
+
+session_start();
+
+// Obtener información principal de "Quiénes Somos"
+$query = "SELECT * FROM quienes_somos WHERE id = 1";
+$result = mysqli_query($con, $query);
+$quienes_somos = mysqli_fetch_assoc($result);
+
+if (!$quienes_somos) {
+    // Si no existe, crear un array vacío para evitar errores
+    $quienes_somos = [
+        'titulo' => 'Quiénes Somos',
+        'contenido' => '',
+        'imagen_principal' => '',
+        'imagen_principal_alt' => '',
+        'mision' => '',
+        'vision' => '',
+        'valores' => ''
+    ];
+}
+
+// Obtener equipo directivo activo
+$query = "SELECT * FROM equipo_quienes_somos WHERE activo = 1 ORDER BY orden, nombre LIMIT 4";
+$result = mysqli_query($con, $query);
+$equipo = [];
+if ($result) {
+    $equipo = mysqli_fetch_all($result, MYSQLI_ASSOC);
+}
+
+// Obtener colaboradores activos
+$query = "SELECT * FROM colaboradores_quienes_somos WHERE activo = 1 ORDER BY orden, nombre";
+$result = mysqli_query($con, $query);
+$colaboradores = [];
+if ($result) {
+    $colaboradores = mysqli_fetch_all($result, MYSQLI_ASSOC);
+}
+
+// Obtener redes sociales para el header/footer
+$socialQuery = "SELECT * FROM social_media WHERE status = 1 ORDER BY name";
+$socialResult = mysqli_query($con, $socialQuery);
+$social_media = [];
+if ($socialResult) {
+    $social_media = mysqli_fetch_all($socialResult, MYSQLI_ASSOC);
+}
+?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Quiénes Somos - Portal Escolar</title>
+    <title>Quiénes Somos - <?php echo htmlspecialchars($quienes_somos['titulo']); ?></title>
     
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -24,6 +84,7 @@
             --text-light: #546e7a;
             --border-color: #e0e0e0;
             --white: #fff;
+            --footer-bg: #222222;
         }
         
         * {
@@ -55,7 +116,7 @@
             color: var(--accent-color);
         }
 
-        /* Header Styles - TEMA BLANCO */
+        /* Header Styles */
         .site-header {
             background-color: var(--white);
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
@@ -81,18 +142,8 @@
             flex: 1;
         }
         
-        .site-title {
-            font-size: 28px;
-            font-weight: 700;
-            margin: 0;
-        }
-        
-        .site-title a {
-            color: var(--primary-color);
-        }
-        
-        .site-title a:hover {
-            color: var(--secondary-color);
+        .site-branding img {
+            height: 60px;
         }
         
         .main-navigation {
@@ -175,16 +226,446 @@
             color: var(--white);
         }
         
-        /* ===========================================
-           BARRA DE NAVEGACIÓN RESPONSIVE
-           =========================================== */
+        /* Estilos específicos para Quiénes Somos */
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: var(--white);
+            padding: 100px 0 80px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
         
-        /* Contenedor de navegación móvil */
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+        
+        .hero-section h1 {
+            color: var(--white);
+            font-size: 3.2rem;
+            margin-bottom: 15px;
+            font-weight: 700;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .hero-section .subtitulo {
+            color: rgba(255,255,255,0.9);
+            font-size: 1.3rem;
+            max-width: 700px;
+            margin: 0 auto;
+            font-weight: 300;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .content-section {
+            padding: 80px 0;
+        }
+        
+        .content-image {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            transition: transform 0.5s ease;
+        }
+        
+        .content-image:hover {
+            transform: translateY(-10px);
+        }
+        
+        .content-image img {
+            width: 100%;
+            height: 450px;
+            object-fit: cover;
+        }
+        
+        /* Contenido de Quiénes Somos profesional - VUELTA A LA VERSIÓN ANTERIOR */
+        .content-text {
+            background-color: var(--white);
+            padding: 50px;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+            font-size: 1.15rem;
+            line-height: 1.8;
+            text-align: justify;
+            border-left: 5px solid var(--primary-color);
+            position: relative;
+            /* ELIMINADO: height, display, flex, justify-content, overflow-y */
+        }
+        
+        .content-text::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, rgba(26, 75, 140, 0.05), transparent);
+            border-radius: 0 12px 0 0;
+        }
+        
+        .content-text h2 {
+            color: var(--primary-color);
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 2rem;
+            position: relative;
+            padding-bottom: 15px;
+        }
+        
+        .content-text h2::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            border-radius: 2px;
+        }
+        
+        .content-text p {
+            margin-bottom: 25px;
+            line-height: 1.9;
+            color: #444;
+            text-align: justify;
+        }
+        
+        .content-text p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .content-text .highlight {
+            background: linear-gradient(120deg, rgba(26, 75, 140, 0.1), transparent);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+            margin: 25px 0;
+            font-style: italic;
+        }
+        
+        .mision-vision-section {
+            background-color: var(--light-bg);
+            padding: 80px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .mision-vision-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none" opacity="0.03"><path d="M0,50 Q25,40 50,50 T100,50 L100,100 L0,100 Z" fill="%231a4b8c"/></svg>');
+            background-size: cover;
+        }
+        
+        .mission-card, .vision-card {
+            background: var(--white);
+            padding: 45px 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            height: 100%;
+            text-align: center;
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+            position: relative;
+            z-index: 1;
+            border-top: 4px solid var(--primary-color); /* MISMO COLOR AZUL */
+        }
+        
+        .mission-card:hover, .vision-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+        }
+        
+        .mission-card i {
+            color: var(--primary-color);
+            font-size: 3.5rem;
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, rgba(26, 75, 140, 0.1), transparent);
+            width: 90px;
+            height: 90px;
+            line-height: 90px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .vision-card i {
+            color: var(--primary-color); /* Mismo color que misión */
+            font-size: 3.5rem;
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, rgba(26, 75, 140, 0.1), transparent);
+            width: 90px;
+            height: 90px;
+            line-height: 90px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .mission-card h3, .vision-card h3 {
+            font-size: 1.8rem;
+            margin-bottom: 25px;
+            color: var(--text-color);
+            position: relative;
+            padding-bottom: 15px;
+        }
+        
+        .mission-card h3::after, .vision-card h3::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 3px;
+            background-color: var(--primary-color);
+            border-radius: 2px;
+        }
+        
+        .mission-card p, .vision-card p {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #555;
+            text-align: justify;
+            margin-bottom: 0;
+        }
+        
+        .values-section {
+            padding: 80px 0;
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+        }
+        
+        .values-section h2 {
+            font-size: 2.2rem;
+            margin-bottom: 50px;
+            color: var(--primary-color);
+            position: relative;
+            padding-bottom: 15px;
+        }
+        
+        .values-section h2::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            border-radius: 2px;
+        }
+        
+        .value-item {
+            text-align: center;
+            padding: 30px 20px;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            transition: all 0.4s ease;
+            height: 100%;
+            border-bottom: 4px solid transparent;
+        }
+        
+        .value-item:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 35px rgba(0,0,0,0.1);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .value-icon {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 25px;
+            color: var(--white);
+            font-size: 2.5rem;
+            box-shadow: 0 10px 20px rgba(26, 75, 140, 0.2);
+        }
+        
+        .value-item h4 {
+            font-size: 1.3rem;
+            color: var(--text-color);
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .value-item p {
+            color: var(--text-light);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        
+        .team-section {
+            background-color: var(--light-bg);
+            padding: 80px 0;
+        }
+        
+        .team-section h2 {
+            font-size: 2.2rem;
+            margin-bottom: 50px;
+            color: var(--primary-color);
+        }
+        
+        .team-member {
+            background: var(--white);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+            transition: all 0.4s ease;
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+            border-top: 5px solid transparent;
+        }
+        
+        .team-member:hover {
+            transform: translateY(-15px);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+            border-top-color: var(--primary-color);
+        }
+        
+        .team-member-img {
+            height: 220px;
+            width: 220px;
+            overflow: hidden;
+            border-radius: 50%;
+            margin: 35px auto 25px;
+            border: 8px solid var(--white);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .team-member-img::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: -8px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            z-index: -1;
+        }
+        
+        .team-member-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .team-member-info {
+            padding: 0 30px 30px;
+        }
+        
+        .team-member-name {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+        
+        .team-member-position {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 20px;
+            font-size: 1rem;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .team-member-description {
+            color: var(--text-light);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            margin-bottom: 20px;
+        }
+        
+        .team-member-contact {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        .team-member-contact a {
+            color: var(--primary-color) !important; /* COLOR AZUL */
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            border-radius: 25px;
+            background: rgba(26, 75, 140, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .team-member-contact a:hover {
+            color: var(--white) !important;
+            background: var(--primary-color);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(26, 75, 140, 0.3);
+        }
+        
+        .collaborators-section {
+            padding: 80px 0;
+        }
+        
+        .collaborators-section h2 {
+            font-size: 2.2rem;
+            margin-bottom: 50px;
+            color: var(--primary-color);
+        }
+        
+        .collaborator-logo {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 35px;
+            height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+            margin-bottom: 30px;
+            transition: all 0.4s ease;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .collaborator-logo:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border-color: var(--primary-color);
+        }
+        
+        .collaborator-logo img {
+            max-width: 100%;
+            max-height: 100px;
+            object-fit: contain;
+        }
+        
+        /* Navegación móvil y responsive... (mantener igual) */
+        
         .mobile-nav-container {
             display: none;
         }
         
-        /* Botón hamburguesa */
         .hamburger-menu {
             display: none;
             flex-direction: column;
@@ -207,7 +688,6 @@
             transition: all 0.3s ease;
         }
         
-        /* Menú móvil activo */
         .hamburger-menu.active span:nth-child(1) {
             transform: translateY(9px) rotate(45deg);
         }
@@ -220,351 +700,32 @@
             transform: translateY(-9px) rotate(-45deg);
         }
         
-        /* Overlay del menú móvil */
-        .mobile-menu-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 998;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
+        /* SOLO LOS ICONOS AZULES en el footer */
+        .contact-info i {
+            color: var(--primary-color) !important; /* SOLO ICONOS AZUL */
+            font-size: 0.9rem;
         }
         
-        .mobile-menu-overlay.active {
-            opacity: 1;
-            visibility: visible;
+        /* El texto (email y teléfono) se queda BLANCO */
+        .contact-info a {
+            color: white !important; /* TEXTO BLANCO */
+            text-decoration: none !important;
+            transition: color 0.3s ease;
         }
         
-        /* Menú móvil */
-        .mobile-menu {
-            position: fixed;
-            top: 0;
-            right: -100%;
-            width: 280px;
-            height: 100%;
-            background-color: var(--white);
-            z-index: 999;
-            transition: right 0.3s ease;
-            overflow-y: auto;
-            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+        .contact-info a:hover {
+            color: #e0f0ff !important; /* Azul claro al hover */
+            text-decoration: underline !important;
         }
         
-        .mobile-menu.active {
-            right: 0;
-        }
-        
-        /* Encabezado del menú móvil */
-        .mobile-menu-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            border-bottom: 1px solid var(--border-color);
-            background-color: var(--white);
-        }
-        
-        .mobile-menu-logo {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text-color);
-        }
-        
-        .mobile-menu-close {
-            background: none;
-            border: none;
-            font-size: 24px;
-            color: var(--text-color);
-            cursor: pointer;
-        }
-        
-        /* Navegación móvil */
-        .mobile-nav {
-            padding: 20px;
-        }
-        
-        .mobile-nav ul {
-            list-style: none;
-        }
-        
-        .mobile-nav li {
-            margin-bottom: 10px;
-        }
-        
-        .mobile-nav a {
-            display: block;
-            padding: 12px 0;
-            font-weight: 500;
-            border-bottom: 1px solid var(--border-color);
-            color: var(--text-color);
-        }
-        
-        .mobile-nav a:hover,
-        .mobile-nav .current-menu-item a {
-            color: var(--accent-color);
-        }
-        
-        .mobile-nav .current-menu-item a {
-            font-weight: 600;
-        }
-        
-        /* Gadgets móviles */
-        .mobile-gadgets {
-            padding: 20px;
-            border-top: 1px solid var(--border-color);
-        }
-        
-        .mobile-social-menu {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            justify-content: center;
-        }
-        
-        .mobile-social-menu a {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: var(--light-bg);
-            color: var(--text-color);
-        }
-        
-        .mobile-social-menu a:hover {
-            background-color: var(--accent-color);
-            color: var(--white);
-        }
-        
-        .mobile-cta-btn {
-            display: block;
-            text-align: center;
-            background-color: var(--accent-color);
-            color: var(--white);
-            padding: 12px 20px;
-            border-radius: 4px;
-            font-weight: 500;
-            margin-top: 10px;
-        }
-        
-        .mobile-cta-btn:hover {
-            background-color: var(--secondary-color);
-            color: var(--white);
-        }
-        
-        /* Breadcrumb */
-        .breadcrumb {
-            background-color: var(--light-bg);
-            padding: 0.75rem 1rem;
-            border-radius: 0.375rem;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            border: 1px solid var(--border-color);
-            margin-bottom: 2rem;
-        }
-        
-        .breadcrumb-item a {
-            color: var(--accent-color);
-            text-decoration: none;
-        }
-        
-        .breadcrumb-item.active {
-            color: var(--text-light);
-        }
-        
-        /* Section Styles */
-        .section-title {
-            position: relative;
-            margin-bottom: 2.5rem;
-            text-align: center;
-        }
-        
-        .section-title::after {
-            content: '';
-            display: block;
-            width: 80px;
-            height: 4px;
-            background: var(--accent-color);
-            margin: 15px auto;
-            border-radius: 2px;
-        }
-        
-        .text-blue {
-            color: var(--accent-color);
-        }
-        
-        /* Content Area */
-        .content-area {
-            padding: 50px 0;
-        }
-        
-        .intro-content {
-            margin-bottom: 4rem;
-        }
-        
-        .intro-content img {
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-        
-        /* Team Styles */
-        .team-container {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 30px;
-            margin-bottom: 3rem;
-        }
-        
-        .team-item {
-            flex: 0 0 auto;
-            text-align: center;
-            width: 100%;
-            max-width: 350px;
-        }
-        
-        .team-card {
-            border: none;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
-            transition: all 0.3s ease;
-            height: 100%;
-            background-color: var(--white);
-            border: 1px solid var(--border-color);
-        }
-        
-        .team-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
-            border-color: var(--accent-color);
-        }
-        
-        .team-card .card-body {
-            padding: 1.5rem;
-        }
-        
-        .team-card .card-footer {
-            background-color: var(--light-bg);
-            border-top: 1px solid var(--border-color);
-            padding: 0.75rem 1.5rem;
-        }
-        
-        .team-card .card-footer a {
-            color: var(--accent-color);
-            text-decoration: none;
-        }
-        
-        /* Collaborators Styles */
-        .collaborators-container {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 30px;
-            margin-bottom: 3rem;
-        }
-        
-        .collaborator-item {
-            flex: 0 0 auto;
-            text-align: center;
-        }
-        
-        .customer-logo {
-            transition: all 0.3s ease;
-            border-radius: 8px;
-            padding: 15px;
-            background: var(--white);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-            border: 1px solid var(--border-color);
-            max-height: 150px;
-        }
-        
-        .customer-logo:hover {
-            transform: scale(1.05);
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-            border-color: var(--accent-color);
-        }
-        
-        /* Footer */
+        /* Footer compacto */
         .site-footer {
-            background-color: var(--primary-color);
+            background-color: var(--footer-bg);
             color: var(--white);
         }
         
         .footer-main {
-            padding: 60px 0 30px;
-        }
-        
-        .footer-logo img {
-            height: 80px;
-            margin-bottom: 20px;
-        }
-        
-        .footer-info {
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        
-        .footer-info a {
-            color: var(--white);
-        }
-        
-        .footer-info a:hover {
-            color: var(--light-bg);
-        }
-        
-        .footer-social {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .footer-social a {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background-color: rgba(255,255,255,0.1);
-            color: var(--white);
-        }
-        
-        .footer-social a:hover {
-            background-color: var(--white);
-            color: var(--primary-color);
-        }
-        
-        .footer-bottom {
-            background-color: var(--dark-bg);
-            padding: 20px 0;
-            font-size: 14px;
-        }
-        
-        .footer-bottom a {
-            color: var(--white);
-        }
-        
-        .footer-bottom a:hover {
-            color: var(--light-bg);
-        }
-        
-        /* Botones */
-        .btn-primary {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-            color: white;
-            padding: 10px 25px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-primary:hover {
-            background-color: var(--secondary-color);
-            border-color: var(--secondary-color);
+            padding: 15px 0 8px;
         }
         
         /* Container */
@@ -574,9 +735,30 @@
             padding: 0 15px;
         }
         
+        /* Efectos de aparición al hacer scroll */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
         /* Responsive */
+        @media (max-width: 1200px) {
+            .hero-section h1 {
+                font-size: 2.8rem;
+            }
+            
+            .content-text {
+                padding: 40px;
+            }
+        }
+        
         @media (max-width: 992px) {
-            /* Navegación responsive - ocultar navegación principal en móvil */
             .main-navigation {
                 display: none;
             }
@@ -586,71 +768,151 @@
                 display: none;
             }
             
-            /* Mostrar botón hamburguesa en móvil */
             .hamburger-menu {
                 display: flex;
             }
             
-            /* Mostrar contenedor de navegación móvil */
             .mobile-nav-container {
                 display: block;
             }
             
-            .collaborators-container {
-                gap: 20px;
+            .hero-section {
+                padding: 80px 0 60px;
             }
             
-            .team-container {
-                gap: 20px;
+            .hero-section h1 {
+                font-size: 2.5rem;
+            }
+            
+            .hero-section .subtitulo {
+                font-size: 1.1rem;
+            }
+            
+            .content-section,
+            .mision-vision-section,
+            .values-section,
+            .team-section,
+            .collaborators-section {
+                padding: 60px 0;
+            }
+            
+            .content-text {
+                padding: 35px;
+                font-size: 1.05rem;
+            }
+            
+            .mission-card, .vision-card {
+                padding: 35px 30px;
             }
         }
         
         @media (max-width: 768px) {
-            .collaborators-container {
-                gap: 20px;
+            .hero-section {
+                padding: 60px 0 40px;
             }
             
-            .team-container {
-                gap: 20px;
+            .hero-section h1 {
+                font-size: 2.2rem;
+            }
+            
+            .hero-section .subtitulo {
+                font-size: 1rem;
+            }
+            
+            .content-image img {
+                height: 350px;
+            }
+            
+            .content-text {
+                padding: 30px;
+                font-size: 1rem;
+            }
+            
+            .content-text h2 {
+                font-size: 1.8rem;
+            }
+            
+            .mission-card h3, .vision-card h3 {
+                font-size: 1.6rem;
+            }
+            
+            .values-section h2,
+            .team-section h2,
+            .collaborators-section h2 {
+                font-size: 1.8rem;
+            }
+            
+            .value-item {
+                padding: 25px 15px;
+            }
+            
+            .team-member-img {
+                height: 180px;
+                width: 180px;
+            }
+            
+            .team-member-contact {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .hero-section {
+                padding: 50px 0 30px;
+            }
+            
+            .hero-section h1 {
+                font-size: 1.9rem;
+            }
+            
+            .hero-section .subtitulo {
+                font-size: 0.95rem;
+                padding: 0 15px;
+            }
+            
+            .content-section,
+            .mision-vision-section,
+            .values-section,
+            .team-section,
+            .collaborators-section {
+                padding: 50px 0;
+            }
+            
+            .content-image img {
+                height: 280px;
+            }
+            
+            .content-text {
+                padding: 25px;
+                font-size: 0.95rem;
+            }
+            
+            .content-text h2 {
+                font-size: 1.6rem;
+            }
+            
+            .mission-card, .vision-card {
+                padding: 30px 25px;
+            }
+            
+            .mission-card h3, .vision-card h3 {
+                font-size: 1.4rem;
+            }
+            
+            .team-member-img {
+                height: 160px;
+                width: 160px;
+                margin: 25px auto 20px;
+            }
+            
+            .team-member-info {
+                padding: 0 20px 25px;
             }
         }
     </style>
 </head>
-
 <body>
-    <?php
-    // Conexión a la base de datos
-    $host = 'localhost';
-    $dbname = 'sige'; // Cambiado a portal_escolar
-    $username = 'root'; // Cambiar por tu usuario
-    $password = ''; // Cambiar por tu contraseña
-    
-    try {
-        $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
-        // Obtener información de la página "Quiénes Somos"
-        $stmt = $pdo->query("SELECT * FROM about_us WHERE id = 1");
-        $about_info = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        // Obtener miembros del equipo
-        $stmt = $pdo->query("SELECT * FROM team_members WHERE status = 1 ORDER BY position_order");
-        $team_members = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Obtener instituciones colaboradoras
-        $stmt = $pdo->query("SELECT * FROM collaborators WHERE status = 1 ORDER BY name");
-        $collaborators = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Obtener redes sociales
-        $stmt = $pdo->query("SELECT * FROM social_media WHERE status = 1 ORDER BY name");
-        $social_media = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-    } catch(PDOException $e) {
-        echo "Error de conexión: " . $e->getMessage();
-        die();
-    }
-    ?>
-    
     <!-- Header -->
     <header class="site-header">
         <div class="header-main">
@@ -683,10 +945,9 @@
                             </a>
                             <?php endforeach; ?>
                         </nav>
-                        <a href="admin/" class="hm-cta-btn">Login</a>
+                        <a href="admin/login/login.php" class="hm-cta-btn">Login</a>
                     </div>
                     
-                    <!-- Botón hamburguesa para móviles -->
                     <button class="hamburger-menu">
                         <span></span>
                         <span></span>
@@ -699,10 +960,7 @@
 
     <!-- Navegación móvil -->
     <div class="mobile-nav-container">
-        <!-- Overlay del menú móvil -->
         <div class="mobile-menu-overlay"></div>
-        
-        <!-- Menú móvil -->
         <div class="mobile-menu">
             <div class="mobile-menu-header">
                 <div class="mobile-menu-logo">Portal Escolar</div>
@@ -739,161 +997,330 @@
         </div>
     </div>
 
-    <div id="content" class="site-content">
-        <div class="content-area container">
-            <!-- Page Heading/Breadcrumbs -->
-            <h1 class="section-title text-blue">Quiénes Somos</h1>
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item">
-                    <a href="index.php">Inicio</a>
-                </li>
-                <li class="breadcrumb-item active">Quiénes Somos</li>
-            </ol>
-            
-            <!-- Intro Content -->
-            <div class="row intro-content">
-                <div class="col-lg-6">
-                    <img class="img-fluid rounded mb-4" src="admin/<?php echo $about_info['main_image'] ?? 'default-school.jpg'; ?>" alt="<?php echo $about_info['image_alt'] ?? 'Nuestra Escuela'; ?>" onerror="this.src='https://placehold.co/600x400/1a4b8c/white?text=Portal+Escolar'">
-                </div>
-                <div class="col-lg-6">
-                    <h2 class="text-blue text-center"><?php echo $about_info['title'] ?? 'Bienvenidos a Nuestro Portal Escolar'; ?></h2>
-                    <?php 
-                    if (isset($about_info['content'])) {
-                        echo $about_info['content'];
-                    } else {
-                        echo '<p>Somos una institución educativa comprometida con la excelencia académica y la formación integral de nuestros estudiantes. Nuestra misión es proporcionar un ambiente de aprendizaje enriquecedor que fomente el crecimiento intelectual, emocional y social.</p>
-                        <p>Contamos con un equipo de educadores altamente calificados y dedicados, que utilizan métodos pedagógicos innovadores para inspirar el amor por el aprendizaje en cada estudiante.</p>
-                        <p>Nuestros valores se centran en el respeto, la responsabilidad, la honestidad y la solidaridad, preparando a nuestros alumnos para los desafíos del futuro.</p>';
-                    }
-                    ?>
-                </div>
-            </div>
-            <!-- /.row -->
-
-            <!-- Team Members -->
-            <h2 class="section-title text-blue">Nuestro Equipo Directivo</h2>
-
-            <div class="team-container">
-                <?php 
-                if (!empty($team_members)) {
-                    foreach ($team_members as $member): ?>
-                    <div class="team-item">
-                        <div class="card h-100 text-center team-card">
-                            <div class="card-body">
-                                <h4 class="card-title"><?php echo $member['name']; ?></h4>
-                                <h6 class="card-subtitle mb-2 text-muted"><?php echo $member['position']; ?></h6>
-                                <p class="card-text"><?php echo $member['description']; ?></p>
-                            </div>
-                            <div class="card-footer">
-                                <a href="mailto:<?php echo $member['email']; ?>"><?php echo $member['email']; ?></a>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach; 
-                } else {
-                    // Datos de ejemplo para equipo escolar
-                    $equipoEscolar = [
-                        ['name' => 'María González', 'position' => 'Directora', 'description' => 'Licenciada en Educación con 20 años de experiencia en dirección escolar.', 'email' => 'directora@escuela.edu'],
-                        ['name' => 'Carlos Rodríguez', 'position' => 'Subdirector', 'description' => 'Especialista en pedagogía y gestión educativa.', 'email' => 'subdirector@escuela.edu'],
-                        ['name' => 'Ana Martínez', 'position' => 'Coordinadora Académica', 'description' => 'Magister en Ciencias de la Educación y planificación curricular.', 'email' => 'academica@escuela.edu']
-                    ];
-                    
-                    foreach ($equipoEscolar as $miembro): ?>
-                    <div class="team-item">
-                        <div class="card h-100 text-center team-card">
-                            <div class="card-body">
-                                <h4 class="card-title"><?php echo $miembro['name']; ?></h4>
-                                <h6 class="card-subtitle mb-2 text-muted"><?php echo $miembro['position']; ?></h6>
-                                <p class="card-text"><?php echo $miembro['description']; ?></p>
-                            </div>
-                            <div class="card-footer">
-                                <a href="mailto:<?php echo $miembro['email']; ?>"><?php echo $miembro['email']; ?></a>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach;
-                }
-                ?>
-            </div>
-            <!-- /.row -->
-
-            <!-- Our Customers -->
-            <h2 class="section-title text-blue">Instituciones Colaboradoras</h2>
-            <div class="collaborators-container">
-                <?php 
-                if (!empty($collaborators)) {
-                    foreach ($collaborators as $collaborator): ?>
-                    <div class="collaborator-item">
-                        <img class="img-fluid customer-logo" src="admin/<?php echo $collaborator['logo']; ?>" alt="<?php echo $collaborator['name']; ?>" style="max-height: 150px;" onerror="this.src='https://placehold.co/150x100/1a4b8c/white?text=Institución'">
-                    </div>
-                    <?php endforeach; 
-                } else {
-                    // Logos de ejemplo para instituciones educativas
-                    $instituciones = [
-                        ['name' => 'Ministerio de Educación', 'logo' => 'https://placehold.co/150x100/1a4b8c/white?text=Ministerio+Educación'],
-                        ['name' => 'Universidad Local', 'logo' => 'https://placehold.co/150x100/1a4b8c/white?text=Universidad'],
-                        ['name' => 'Biblioteca Municipal', 'logo' => 'https://placehold.co/150x100/1a4b8c/white?text=Biblioteca']
-                    ];
-                    
-                    foreach ($instituciones as $institucion): ?>
-                    <div class="collaborator-item">
-                        <img class="img-fluid customer-logo" src="<?php echo $institucion['logo']; ?>" alt="<?php echo $institucion['name']; ?>" style="max-height: 150px;">
-                    </div>
-                    <?php endforeach;
-                }
-                ?>
-            </div>
-            <!-- /.row -->
+    <!-- Hero Section - PROFESIONAL Y BRUTAL -->
+    <section class="hero-section">
+        <div class="container">
+            <h1 class="fade-in"><?php echo htmlspecialchars($quienes_somos['titulo']); ?></h1>
+            <p class="subtitulo fade-in">Descubre la esencia de nuestra institución y nuestro compromiso con la excelencia educativa</p>
         </div>
-    </div>
-    
-    <!-- Footer -->
+    </section>
+
+    <!-- Contenido Principal - VUELTA A LA VERSIÓN ANTERIOR -->
+    <section class="content-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <?php if (!empty($quienes_somos['imagen_principal'])): 
+                    $ruta_imagen = '/heldyn/centeno/uploads/quienes-somos/' . $quienes_somos['imagen_principal'];
+                ?>
+                <div class="col-lg-6 mb-5 mb-lg-0 fade-in">
+                    <div class="content-image">
+                        <img src="<?php echo $ruta_imagen; ?>" 
+                             alt="<?php echo htmlspecialchars($quienes_somos['imagen_principal_alt'] ?? $quienes_somos['titulo']); ?>"
+                             onerror="this.src='https://placehold.co/600x450/1a4b8c/white?text=Institución+Educativa'">
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <div class="<?php echo !empty($quienes_somos['imagen_principal']) ? 'col-lg-6' : 'col-12'; ?> fade-in">
+                    <div class="content-text">
+                        <?php if (!empty($quienes_somos['contenido'])): ?>
+                            <?php 
+                            // Mostrar el contenido formateado con párrafos
+                            $contenido = html_entity_decode($quienes_somos['contenido']);
+                            // Si tiene saltos de línea dobles, convertirlos en párrafos
+                            if (strpos($contenido, "\n\n") !== false) {
+                                $parrafos = explode("\n\n", $contenido);
+                                foreach ($parrafos as $index => $parrafo) {
+                                    $parrafo_limpio = trim($parrafo);
+                                    if (!empty($parrafo_limpio)) {
+                                        if ($index === 0) {
+                                            echo '<p class="lead" style="font-weight: 500; color: #2c3e50;">' . nl2br($parrafo_limpio) . '</p>';
+                                        } else {
+                                            echo '<p>' . nl2br($parrafo_limpio) . '</p>';
+                                        }
+                                    }
+                                }
+                            } else {
+                                echo '<p class="lead" style="font-weight: 500; color: #2c3e50;">' . nl2br($contenido) . '</p>';
+                            }
+                            ?>
+                        <?php else: ?>
+                            <!-- Texto por defecto con la estructura que quieres -->
+                            <p class="lead" style="font-weight: 500; color: #2c3e50;">Somos una institución educativa comprometida con la excelencia académica y la formación integral de nuestros estudiantes. Nuestra misión es proporcionar un ambiente de aprendizaje enriquecedor que fomente el crecimiento intelectual, emocional y social.</p>
+                            
+                            <p>Contamos con un equipo de educadores altamente calificados y dedicados, que utilizan métodos pedagógicos innovadores para inspirar el amor por el aprendizaje en cada estudiante. Nuestros valores se centran en el respeto, la responsabilidad, la honestidad y la solidaridad, preparando a nuestros alumnos para los desafíos del futuro.</p>
+                            
+                            <div class="highlight">
+                                <p>Con más de 20 años de experiencia en educación, hemos formado a generaciones de estudiantes que hoy son profesionales exitosos y ciudadanos comprometidos con el desarrollo de nuestra sociedad.</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Misión y Visión -->
+    <?php if (!empty($quienes_somos['mision']) || !empty($quienes_somos['vision'])): ?>
+    <section class="mision-vision-section">
+        <div class="container">
+            <div class="row">
+                <?php if (!empty($quienes_somos['mision'])): ?>
+                <div class="col-md-6 mb-5 mb-md-0 fade-in">
+                    <div class="mission-card">
+                        <i class="fas fa-bullseye"></i>
+                        <h3>Nuestra Misión</h3>
+                        <p><?php echo nl2br(htmlspecialchars($quienes_somos['mision'])); ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <?php if (!empty($quienes_somos['vision'])): ?>
+                <div class="col-md-6 fade-in">
+                    <div class="vision-card">
+                        <i class="fas fa-eye"></i>
+                        <h3>Nuestra Visión</h3>
+                        <p><?php echo nl2br(htmlspecialchars($quienes_somos['vision'])); ?></p>
+                    </div>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <!-- Valores (solo 4) -->
+    <?php if (!empty($quienes_somos['valores'])): 
+        $valores = explode(',', $quienes_somos['valores']);
+        $valores_limpios = array_filter(array_map('trim', $valores));
+        // Tomar solo los primeros 4 valores
+        $valores_limitados = array_slice($valores_limpios, 0, 4);
+        
+        // Descripciones para TODOS los valores incluyendo Innovación y Compromiso
+        $descripciones_valores = [
+            'Respeto' => 'Valoramos la dignidad de cada persona, promoviendo un ambiente de convivencia armónica.',
+            'Responsabilidad' => 'Cumplimos con nuestros compromisos y fomentamos la autonomía en nuestros estudiantes.',
+            'Solidaridad' => 'Trabajamos en equipo y apoyamos a quienes más lo necesitan en nuestra comunidad.',
+            'Innovación' => 'Implementamos metodologías educativas actualizadas para una enseñanza de calidad.',
+            'Honestidad' => 'Actuamos con transparencia y veracidad en todas nuestras acciones.',
+            'Compromiso' => 'Dedicación total hacia la formación integral de nuestros estudiantes.',
+            'Excelencia' => 'Buscamos la máxima calidad en todos los procesos educativos.',
+            'Integridad' => 'Coherencia entre pensamiento, palabra y acción en nuestro quehacer educativo.'
+        ];
+    ?>
+    <section class="values-section">
+        <div class="container">
+            <h2 class="text-center mb-5 fade-in">Nuestros Valores Fundamentales</h2>
+            <div class="row">
+                <?php 
+                $iconos = ['fas fa-handshake', 'fas fa-tasks', 'fas fa-users', 'fas fa-lightbulb', 
+                          'fas fa-star', 'fas fa-heart', 'fas fa-award', 'fas fa-shield-alt'];
+                $i = 0;
+                foreach ($valores_limitados as $valor): 
+                    // Buscar descripción para este valor
+                    $descripcion = isset($descripciones_valores[$valor]) ? $descripciones_valores[$valor] : 
+                                  'Valor fundamental que guía nuestra acción educativa diaria.';
+                ?>
+                <div class="col-md-3 col-sm-6 mb-4 fade-in">
+                    <div class="value-item">
+                        <div class="value-icon">
+                            <i class="<?php echo $iconos[$i] ?? 'fas fa-star'; ?>"></i>
+                        </div>
+                        <h4><?php echo htmlspecialchars($valor); ?></h4>
+                        <p><?php echo htmlspecialchars($descripcion); ?></p>
+                    </div>
+                </div>
+                <?php 
+                    $i++;
+                endforeach; 
+                ?>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <!-- Equipo Directivo (solo 4) -->
+    <?php if (!empty($equipo)): ?>
+    <section class="team-section">
+        <div class="container">
+            <h2 class="text-center mb-5 fade-in">Nuestro Equipo Directivo</h2>
+            <div class="row justify-content-center">
+                <?php foreach ($equipo as $miembro): ?>
+                <div class="col-lg-3 col-md-6 mb-4 fade-in">
+                    <div class="team-member">
+                        <div class="team-member-img">
+                            <?php if (!empty($miembro['imagen'])): 
+                                $ruta_foto = '/heldyn/centeno/uploads/quienes-somos/equipo/' . $miembro['imagen'];
+                            ?>
+                                <img src="<?php echo $ruta_foto; ?>" 
+                                     alt="<?php echo htmlspecialchars($miembro['nombre']); ?>"
+                                     onerror="this.src='https://placehold.co/400x400/1a4b8c/white?text=<?php echo urlencode($miembro['nombre']); ?>'">
+                            <?php else: ?>
+                                <img src="https://placehold.co/400x400/1a4b8c/white?text=<?php echo urlencode($miembro['nombre']); ?>" 
+                                     alt="<?php echo htmlspecialchars($miembro['nombre']); ?>">
+                            <?php endif; ?>
+                        </div>
+                        <div class="team-member-info">
+                            <h3 class="team-member-name"><?php echo htmlspecialchars($miembro['nombre']); ?></h3>
+                            <div class="team-member-position"><?php echo htmlspecialchars($miembro['cargo']); ?></div>
+                            <?php if (!empty($miembro['descripcion'])): ?>
+                                <p class="team-member-description"><?php echo htmlspecialchars($miembro['descripcion']); ?></p>
+                            <?php endif; ?>
+                            
+                            <div class="team-member-contact">
+                                <?php if (!empty($miembro['email'])): ?>
+                                    <a href="mailto:<?php echo htmlspecialchars($miembro['email']); ?>" title="Enviar correo">
+                                        <i class="fas fa-envelope"></i> Email
+                                    </a>
+                                <?php endif; ?>
+                                <?php if (!empty($miembro['telefono'])): ?>
+                                    <a href="tel:<?php echo htmlspecialchars($miembro['telefono']); ?>" title="Llamar">
+                                        <i class="fas fa-phone"></i> Teléfono
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <!-- Colaboradores -->
+    <?php if (!empty($colaboradores)): ?>
+    <section class="collaborators-section">
+        <div class="container">
+            <h2 class="text-center mb-5 fade-in">Instituciones Colaboradoras</h2>
+            <div class="row">
+                <?php foreach ($colaboradores as $colaborador): ?>
+                <div class="col-lg-3 col-md-4 col-sm-6 mb-4 fade-in">
+                    <div class="collaborator-logo">
+                        <?php if (!empty($colaborador['logo'])): 
+                            $ruta_logo = '/heldyn/centeno/uploads/quienes-somos/colaboradores/' . $colaborador['logo'];
+                        ?>
+                            <?php if (!empty($colaborador['url'])): ?>
+                                <a href="<?php echo htmlspecialchars($colaborador['url']); ?>" target="_blank">
+                                    <img src="<?php echo $ruta_logo; ?>" 
+                                         alt="<?php echo htmlspecialchars($colaborador['nombre']); ?>"
+                                         onerror="this.src='https://placehold.co/150x100/1a4b8c/white?text=Logo'">
+                                </a>
+                            <?php else: ?>
+                                <img src="<?php echo $ruta_logo; ?>" 
+                                     alt="<?php echo htmlspecialchars($colaborador['nombre']); ?>"
+                                     onerror="this.src='https://placehold.co/150x100/1a4b8c/white?text=Logo'">
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <div style="text-align: center; width: 100%;">
+                                <?php if (!empty($colaborador['url'])): ?>
+                                    <a href="<?php echo htmlspecialchars($colaborador['url']); ?>" target="_blank" style="color: var(--primary-color);">
+                                        <i class="fas fa-building fa-3x mb-3"></i>
+                                        <div class="collaborator-name"><?php echo htmlspecialchars($colaborador['nombre']); ?></div>
+                                    </a>
+                                <?php else: ?>
+                                    <i class="fas fa-building fa-3x mb-3" style="color: var(--primary-color);"></i>
+                                    <div class="collaborator-name"><?php echo htmlspecialchars($colaborador['nombre']); ?></div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="collaborator-info">
+                        <?php if (!empty($colaborador['descripcion'])): ?>
+                            <p class="collaborator-description"><?php echo htmlspecialchars(substr($colaborador['descripcion'], 0, 100)); ?>...</p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <?php
+    // Obtener configuración del footer
+    $footerQuery = "SELECT * FROM footer_config WHERE id = 1";
+    $footerResult = mysqli_query($con, $footerQuery);
+    $footer_config = mysqli_fetch_assoc($footerResult);
+
+    if (!$footer_config) {
+        $footer_config = [
+            'direccion' => 'Caricuao, Urbanización García Carballo',
+            'email' => 'RobertoMC@gmail.com',
+            'telefono' => '02125368526',
+            'derechos_autor' => '© 2026 Portal Escolar | Institución Educativa',
+            'creditos' => 'Desarrollado para la comunidad educativa'
+        ];
+    }
+
+    $derechos_actual = str_replace('[año]', date('Y'), $footer_config['derechos_autor']);
+    ?>
+
+    <!-- Footer Compacto -->
     <footer class="site-footer">
         <div class="footer-main">
             <div class="container">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="footer-logo">
-                            <h3 style="color: white; margin-bottom: 20px;">Portal Escolar</h3>
+                <div class="row mb-2">
+                    <div class="col-12 text-center">
+                        <h5 style="color: white; font-size: 1.1rem; margin-bottom: 8px; font-weight: 600;">PORTAL ESCOLAR</h5>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <p style="font-size: 0.9rem; line-height: 1.5; text-align: center; color: rgba(255,255,255,0.9); margin: 0 5px 8px 5px;">
+                            Plataforma oficial de comunicación e información educativa, comprometida con la innovación y el desarrollo integral de nuestra comunidad educativa.
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="contact-info text-center" style="font-size: 0.85rem;">
+                            <span style="margin-right: 15px;">
+                                <i class="fas fa-map-marker-alt" style="margin-right: 5px;"></i>
+                                <?php echo htmlspecialchars($footer_config['direccion']); ?>
+                            </span>
+                            
+                            <span style="margin-right: 15px;">
+                                <i class="fas fa-envelope" style="margin-right: 5px;"></i>
+                                <a href="mailto:<?php echo htmlspecialchars($footer_config['email']); ?>">
+                                    <?php echo htmlspecialchars($footer_config['email']); ?>
+                                </a>
+                            </span>
+                            
+                            <span>
+                                <i class="fas fa-phone" style="margin-right: 5px;"></i>
+                                <a href="tel:<?php echo htmlspecialchars($footer_config['telefono']); ?>">
+                                    <?php echo htmlspecialchars($footer_config['telefono']); ?>
+                                </a>
+                            </span>
                         </div>
-                        <div class="footer-info">
-                            <p><strong>Dirección:</strong> Calle Principal #123, Colonia Centro. Código Postal 12345</p>
-                            <p><strong>Contacto:</strong> <a href="mailto:info@colegioejemplo.edu">info@colegioejemplo.edu</a></p>
-                            <p><strong>Teléfono:</strong> <a href="tel:+1234567890">+123 456 7890</a></p>
-                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-12 text-center">
                         <div class="footer-social">
                             <?php foreach ($social_media as $social): ?>
-                            <a href="<?php echo $social['url']; ?>" target="_blank">
+                            <a href="<?php echo $social['url']; ?>" target="_blank" class="social-icon">
                                 <?php if ($social['icon_type'] == 'fontawesome'): ?>
                                     <i class="<?php echo $social['icon']; ?>"></i>
                                 <?php else: ?>
-                                    <img src="admin/<?php echo $social['icon']; ?>" width="16" height="16">
+                                    <img src="admin/<?php echo $social['icon']; ?>" width="14" height="14">
                                 <?php endif; ?>
                             </a>
                             <?php endforeach; ?>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="footer-info">
-                            <h3 style="color: white; margin-bottom: 20px;">Portal Escolar</h3>
-                            <p>El Portal Escolar es la plataforma oficial de comunicación e información educativa, dedicada a promover la innovación y el desarrollo integral en el ámbito educativo.</p>
-                            <p>Nuestro compromiso es brindar recursos, herramientas y contenidos de calidad para fortalecer el proceso de enseñanza-aprendizaje de nuestra comunidad educativa.</p>
-                        </div>
-                    </div>
                 </div>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <div class="container">
+                
                 <div class="row">
-                    <div class="col-md-6">
-                        <div class="footer-copyright">
-                            &copy; <?php echo date('Y'); ?> Portal Escolar | Institución Educativa
-                        </div>
-                    </div>
-                    <div class="col-md-6 text-end">
-                        <div class="footer-credits">
-                            Desarrollado para la comunidad educativa
+                    <div class="col-12">
+                        <div class="footer-bottom-content text-center" style="font-size: 0.8rem; color: rgba(255,255,255,0.8);">
+                            <span><?php echo htmlspecialchars($derechos_actual); ?></span>
+                            <span style="margin: 0 10px;">|</span>
+                            <span><?php echo htmlspecialchars($footer_config['creditos']); ?></span>
                         </div>
                     </div>
                 </div>
@@ -912,7 +1339,6 @@
             const mobileMenuClose = document.querySelector('.mobile-menu-close');
             
             if (hamburgerMenu && mobileMenu && mobileMenuOverlay && mobileMenuClose) {
-                // Abrir menú móvil
                 hamburgerMenu.addEventListener('click', function() {
                     this.classList.toggle('active');
                     mobileMenu.classList.toggle('active');
@@ -920,7 +1346,6 @@
                     document.body.style.overflow = 'hidden';
                 });
                 
-                // Cerrar menú móvil
                 function closeMobileMenu() {
                     hamburgerMenu.classList.remove('active');
                     mobileMenu.classList.remove('active');
@@ -931,13 +1356,39 @@
                 mobileMenuClose.addEventListener('click', closeMobileMenu);
                 mobileMenuOverlay.addEventListener('click', closeMobileMenu);
                 
-                // Cerrar menú al hacer clic en un enlace
                 const mobileNavLinks = document.querySelectorAll('.mobile-nav a');
                 mobileNavLinks.forEach(link => {
                     link.addEventListener('click', closeMobileMenu);
                 });
             }
+
+            // Efecto de aparición al hacer scroll
+            const fadeElements = document.querySelectorAll('.fade-in');
+            
+            function checkScroll() {
+                fadeElements.forEach(element => {
+                    const elementTop = element.getBoundingClientRect().top;
+                    const elementVisible = 100;
+                    
+                    if (elementTop < window.innerHeight - elementVisible) {
+                        element.classList.add('visible');
+                    }
+                });
+            }
+            
+            // Verificar al cargar y al hacer scroll
+            window.addEventListener('load', checkScroll);
+            window.addEventListener('scroll', checkScroll);
+            
+            // Aplicar efecto inicial
+            setTimeout(() => {
+                checkScroll();
+            }, 100);
         });
     </script>
 </body>
 </html>
+<?php
+// Cerrar conexión
+mysqli_close($con);
+?>

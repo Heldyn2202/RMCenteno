@@ -50,7 +50,6 @@ $profesores = $query_profesores->fetchAll(PDO::FETCH_ASSOC);
                 <th>Apellidos</th>
                 <th>Especialidad</th>
                 <th>Teléfono</th>
-                <th>Usuario</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -63,12 +62,11 @@ $profesores = $query_profesores->fetchAll(PDO::FETCH_ASSOC);
                 <td><?= htmlspecialchars($profesor['apellidos']); ?></td>
                 <td><?= htmlspecialchars($profesor['especialidad']); ?></td>
                 <td><?= htmlspecialchars($profesor['telefono']); ?></td>
-                <td><?= htmlspecialchars($profesor['usuario']); ?></td>
                 <td class="text-center">
                   <?php if ($profesor['estado'] == 1): ?>
-                    <button class="btn btn-success btn-sm" style="border-radius:20px;">ACTIVO</button>
+                    <span class="badge bg-success">ACTIVO</span>
                   <?php else: ?>
-                    <button class="btn btn-danger btn-sm" style="border-radius:20px;">INACTIVO</button>
+                    <span class="badge bg-danger">INACTIVO</span>
                   <?php endif; ?>
                 </td>
                 <td class="text-center">
@@ -77,11 +75,6 @@ $profesores = $query_profesores->fetchAll(PDO::FETCH_ASSOC);
                      title="Ver Detalles" style="border: none;">
                     <i class="fas fa-eye"></i>
                   </a>
-                  <a href="editar_profesor.php?id=<?= $profesor['id_profesor']; ?>" 
-                     class="btn btn-sm btn-outline-warning" 
-                     title="Editar" style="border: none;">
-                    <i class="fas fa-edit"></i>
-                  </a>
                   <a href="../asignaciones/asignar_profesor.php?id_profesor=<?= $profesor['id_profesor']; ?>" 
                      class="btn btn-sm btn-outline-primary" 
                      title="Asignaciones" style="border: none;">
@@ -89,19 +82,23 @@ $profesores = $query_profesores->fetchAll(PDO::FETCH_ASSOC);
                   </a>
 
                   <?php if ($profesor['estado'] == 1): ?>
-                    <a href="cambiar_estado.php?id=<?= $profesor['id_profesor']; ?>&estado=0" 
-                       class="btn btn-sm btn-outline-secondary" 
+                    <a href="#" 
+                       class="btn btn-sm btn-outline-secondary btn-inhabilitar" 
                        title="Inhabilitar" 
                        style="border: none;"
-                       onclick="return confirm('¿Está seguro de inhabilitar este profesor?')">
+                       data-id="<?= $profesor['id_profesor']; ?>"
+                       data-nombre="<?= htmlspecialchars($profesor['nombres'] . ' ' . $profesor['apellidos']); ?>"
+                       data-estado="0">
                       <i class="fas fa-toggle-off"></i>
                     </a>
                   <?php else: ?>
-                    <a href="cambiar_estado.php?id=<?= $profesor['id_profesor']; ?>&estado=1" 
-                       class="btn btn-sm btn-outline-success" 
+                    <a href="#" 
+                       class="btn btn-sm btn-outline-success btn-habilitar" 
                        title="Habilitar" 
                        style="border: none;"
-                       onclick="return confirm('¿Está seguro de habilitar este profesor?')">
+                       data-id="<?= $profesor['id_profesor']; ?>"
+                       data-nombre="<?= htmlspecialchars($profesor['nombres'] . ' ' . $profesor['apellidos']); ?>"
+                       data-estado="1">
                       <i class="fas fa-toggle-on"></i>
                     </a>
                   <?php endif; ?>
@@ -141,7 +138,7 @@ $(document).ready(function() {
         "previous": "Anterior"
       }
     },
-    order: [[2, 'asc']]
+    order: [[2, 'asc']] // Ordenar por apellidos (columna 2)
   });
 
   // Efecto hover en filas
@@ -149,5 +146,135 @@ $(document).ready(function() {
     function() { $(this).css('background-color', '#f1f5f9'); },
     function() { $(this).css('background-color', ''); }
   );
+
+  // Función para mostrar SweetAlert de confirmación
+  function mostrarConfirmacion(id, nombre, estado) {
+    const esInhabilitar = estado == 0;
+    const titulo = esInhabilitar ? '¿Inhabilitar profesor?' : '¿Habilitar profesor?';
+    const texto = esInhabilitar 
+      ? `¿Está seguro de inhabilitar al profesor ${nombre}?` 
+      : `¿Está seguro de habilitar al profesor ${nombre}?`;
+    const icono = esInhabilitar ? 'warning' : 'success';
+    const textoConfirmar = esInhabilitar ? 'Sí, inhabilitar' : 'Sí, habilitar';
+    const colorConfirmar = esInhabilitar ? '#d33' : '#3085d6';
+    
+    Swal.fire({
+      title: titulo,
+      text: texto,
+      icon: icono,
+      showCancelButton: true,
+      confirmButtonColor: colorConfirmar,
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: textoConfirmar,
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+      showLoaderOnConfirm: true,
+      preConfirm: () => {
+        return new Promise((resolve) => {
+          // Redirigir directamente (sin AJAX)
+          window.location.href = `cambiar_estado.php?id=${id}&estado=${estado}`;
+          resolve(true);
+        });
+      },
+      allowOutsideClick: () => !Swal.isLoading()
+    });
+  }
+
+  // Evento para botón de inhabilitar
+  $(document).on('click', '.btn-inhabilitar', function(e) {
+    e.preventDefault();
+    const id = $(this).data('id');
+    const nombre = $(this).data('nombre');
+    const estado = $(this).data('estado');
+    
+    mostrarConfirmacion(id, nombre, estado);
+  });
+
+  // Evento para botón de habilitar
+  $(document).on('click', '.btn-habilitar', function(e) {
+    e.preventDefault();
+    const id = $(this).data('id');
+    const nombre = $(this).data('nombre');
+    const estado = $(this).data('estado');
+    
+    mostrarConfirmacion(id, nombre, estado);
+  });
+
+  // Función para decodificar entidades HTML
+  function decodeHtmlEntities(text) {
+    const textArea = document.createElement('textarea');
+    textArea.innerHTML = text;
+    return textArea.value;
+  }
+
+  // Mostrar mensaje de éxito/error si viene en la URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const successMsg = urlParams.get('success');
+  const errorMsg = urlParams.get('error');
+  
+  if (successMsg) {
+    // Decodificar el mensaje (puede venir codificado)
+    const decodedMsg = decodeURIComponent(successMsg);
+    
+    Swal.fire({
+      icon: 'success',
+      title: '¡Éxito!',
+      html: decodedMsg,
+      confirmButtonColor: '#3085d6',
+      showConfirmButton: true,
+      allowOutsideClick: false,
+      customClass: {
+        popup: 'custom-swal-popup'
+      }
+    }).then(() => {
+      // Limpiar URL
+      history.replaceState({}, document.title, window.location.pathname);
+    });
+  }
+  
+  if (errorMsg) {
+    const decodedError = decodeURIComponent(errorMsg);
+    
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      html: decodedError,
+      confirmButtonColor: '#d33',
+      showConfirmButton: true,
+      allowOutsideClick: false,
+      customClass: {
+        popup: 'custom-swal-popup'
+      }
+    }).then(() => {
+      // Limpiar URL
+      history.replaceState({}, document.title, window.location.pathname);
+    });
+  }
 });
 </script>
+
+<style>
+/* Estilos para SweetAlert personalizados */
+.custom-swal-popup {
+  border-radius: 12px !important;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+}
+
+.swal2-title {
+  font-size: 1.4rem !important;
+  font-weight: 600 !important;
+  color: #2c3e50 !important;
+}
+
+.swal2-html-container {
+  font-size: 1rem !important;
+  line-height: 1.5 !important;
+  text-align: left !important;
+}
+
+.swal2-confirm {
+  border-radius: 6px !important;
+  padding: 8px 25px !important;
+  font-weight: 500 !important;
+}
+</style>

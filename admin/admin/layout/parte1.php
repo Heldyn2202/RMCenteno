@@ -250,9 +250,9 @@ $bgColor = $colors[$colorIndex];
             color: white;
         }
         
-        /* ========== COLOR DE LOS CUADROS DEL SUBMENÚ ========== */
+        /* ========== COLOR DE LOS CUADROS DEL SUBMENÚ - AHORA GRIS CENIZA ========== */
         .nav-sidebar > .nav-item > .nav-link {
-            background: #0d6efd !important; /* COLOR PRINCIPAL - Items del menú */
+            background: #6c757d !important; /* GRIS CENIZA - Items del menú */
             color: white !important;
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
             border-left: 3px solid rgba(255, 255, 255, 0.3) !important;
@@ -261,29 +261,60 @@ $bgColor = $colors[$colorIndex];
         
         /* Borde blanco más intenso SOLO para el elemento activo */
         .nav-sidebar > .nav-item > .nav-link.active {
-            background: #0b5ed7 !important; /* COLOR PRINCIPAL - Versión más oscura para activo */
+            background: #5a6268 !important; /* GRIS CENIZA más oscuro para activo */
             border-left: 8px solid #ffffff !important;
         }
         
         .nav-sidebar > .nav-item > .nav-link:hover {
-            background: #0c63e4 !important; /* COLOR PRINCIPAL - Versión intermedia para hover */
+            background: #5a6268 !important; /* GRIS CENIZA - Versión intermedia para hover */
             border-left: 5px solid rgba(255, 255, 255, 0.7) !important;
         }
         
-        /* ========== COLOR DE LOS SUBMENÚS DESPLEGABLES ========== */
+        /* ========== COLOR DE LOS SUBMENÚS DESPLEGABLES - FONDO NEGRO ========== */
+        .nav-treeview {
+            background: #212529 !important; /* FONDO NEGRO para el contenedor de submenús */
+            border-radius: 0 0 5px 5px;
+        }
+        
         .nav-treeview .nav-item .nav-link {
-            background: #e9ecef !important; /* COLOR SECUNDARIO - Submenús desplegables */
-            color: #495057 !important;
-            border-left: 3px solid #dee2e6 !important;
+            background: #212529 !important; /* FONDO NEGRO - Submenús desplegables */
+            color: #f8f9fa !important;
+            border-left: 3px solid #343a40 !important;
+            padding-left: 35px !important;
         }
         
         .nav-treeview .nav-item .nav-link.active {
-            background: #dae0e5 !important; /* COLOR SECUNDARIO - Submenús activos */
-            border-left: 8px solid #0d6efd !important; /* COLOR PRINCIPAL - Borde azul */
+            background: #343a40 !important; /* NEGRO más claro para activos */
+            border-left: 8px solid #6c757d !important; /* Borde gris ceniza */
+            color: #ffffff !important;
         }
         
         .nav-treeview .nav-item .nav-link:hover {
-            background: #d1d7dc !important; /* COLOR SECUNDARIO - Submenús hover */
+            background: #343a40 !important; /* NEGRO más claro para hover */
+            color: #ffffff !important;
+        }
+        
+        /* Flecha del menú desplegable en color blanco para contraste */
+        .nav-link > .right {
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+        
+        /* Cuando el menú está abierto, ajustar el color del texto principal */
+        .nav-item.menu-open > .nav-link:not(.active) {
+            background: #5a6268 !important;
+        }
+        
+        /* Mejorar la separación visual entre menús */
+        .nav-sidebar .nav-treeview {
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+        
+        /* Ajustar el borde del menú principal cuando tiene submenús abiertos */
+        .nav-sidebar > .nav-item.menu-open > .nav-link {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            background: #5a6268 !important;
         }
         
         /* Ajustes para la imagen del usuario */
@@ -455,6 +486,11 @@ $bgColor = $colors[$colorIndex];
                     $es_notas = strpos($ruta_actual, 'notas') !== false;
                     $es_configuraciones = strpos($ruta_actual, 'configuraciones') !== false;
                     $es_chat = strpos($ruta_actual, 'chat') !== false;
+                    $es_portal_cms = strpos($ruta_actual, 'portal-cms') !== false;
+                    $es_materias_pendientes = strpos($ruta_actual, 'seleccion_materia_pendiente') !== false;
+                    $es_horarios = strpos($ruta_actual, 'horarios') !== false || 
+                                   strpos($ruta_actual, 'crear_horarios') !== false || 
+                                   strpos($ruta_actual, 'horarios_consolidados') !== false;
                     ?>
                     
                     <li class="nav-item">
@@ -475,28 +511,75 @@ $bgColor = $colors[$colorIndex];
                         </a>
                     </li>
                     
+       <!-- =================================================== -->
+<!-- GESTIÓN DE NOTAS -->
+<!-- =================================================== -->
+<?php if (
+    (isset($_SESSION['es_docente']) && $_SESSION['es_docente']) 
+    || (isset($_SESSION['rol_id']) && ($_SESSION['rol_id'] == 1 || $_SESSION['rol_id'] == 2 || $_SESSION['rol_id'] == 3))
+): ?>
+<li class="nav-item <?= (strpos($ruta_actual, 'notas') !== false || strpos($ruta_actual, 'seleccion_materia_pendiente') !== false) && 
+                        !strpos($ruta_actual, 'horarios') ? 'menu-open' : '' ?>">
+    <a href="#" class="nav-link <?= ($es_notas || $es_materias_pendientes) && !$es_horarios ? 'active' : '' ?>">
+        <i class="nav-icon fas fa-edit"></i>
+        <p>
+            Gestión de Notas
+            <i class="right fas fa-angle-left"></i>
+        </p>
+    </a>
+    <ul class="nav nav-treeview">
+        <li class="nav-item">
+            <a href="<?=APP_URL;?>/admin/notas/carga_notas_seccion.php" class="nav-link <?= (strpos($ruta_actual, 'carga_notas_seccion') !== false) ? 'active' : '' ?>">
+                <i class="nav-icon fas fa-users"></i>
+                <p>Carga Masiva por Sección</p>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="<?=APP_URL;?>/admin/notas/seleccion_materia_pendiente.php" class="nav-link <?= $es_materias_pendientes ? 'active' : '' ?>">
+                <i class="nav-icon fas fa-exclamation-circle"></i>
+                <p>Gestión de Materias Pendientes</p>
+            </a>
+        </li>
+        <!-- NUEVO SUBMENÚ AGREGADO: LISTA DE REPITIENTES -->
+        <li class="nav-item">
+            <a href="<?=APP_URL;?>/admin/notas/lista_repitientes.php" class="nav-link <?= (strpos($ruta_actual, 'lista_repitientes') !== false) ? 'active' : '' ?>">
+                <i class="nav-icon fas fa-redo"></i>
+                <p>Lista de Repitientes</p>
+            </a>
+        </li>
+        <!-- FIN NUEVO SUBMENÚ -->
+        <li class="nav-item">
+            <a href="<?=APP_URL;?>/admin/notas/ver_progreso_notas.php" class="nav-link <?= (strpos($ruta_actual, 'ver_progreso_notas') !== false) ? 'active' : '' ?>">
+                <i class="nav-icon fas fa-chart-line"></i>
+                <p>Progreso de Notas</p>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="<?=APP_URL;?>/admin/notas/historial_notas.php" class="nav-link <?= (strpos($ruta_actual, 'historial_notas') !== false) ? 'active' : '' ?>">
+                <i class="nav-icon fas fa-history"></i>
+                <p>Historial de Cambios</p>
+            </a>
+        </li>
+    </ul>
+</li>
+<?php endif; ?>
+
         <!-- =================================================== -->
-        <!-- MÓDULO DE NOTAS Y HORARIOS UNIFICADO -->
+        <!-- GESTIÓN DE HORARIOS -->
         <!-- =================================================== -->
         <?php if (
             (isset($_SESSION['es_docente']) && $_SESSION['es_docente']) 
-            || (isset($_SESSION['rol_id']) && ($_SESSION['rol_id'] == 1 || $_SESSION['rol_id'] == 2))
+            || (isset($_SESSION['rol_id']) && ($_SESSION['rol_id'] == 1 || $_SESSION['rol_id'] == 2 || $_SESSION['rol_id'] == 3))
         ): ?>
-        <li class="nav-item <?= (strpos($ruta_actual, 'notas') !== false) ? 'menu-open' : '' ?>">
-            <a href="#" class="nav-link <?= $es_notas ? 'active' : '' ?>">
-                <i class="nav-icon fas fa-chalkboard-teacher"></i>
+        <li class="nav-item <?= $es_horarios ? 'menu-open' : '' ?>">
+            <a href="#" class="nav-link <?= $es_horarios ? 'active' : '' ?>">
+                <i class="nav-icon fas fa-calendar-alt"></i>
                 <p>
-                    Módulo de Notas y Horarios
+                    Gestión de Horarios
                     <i class="right fas fa-angle-left"></i>
                 </p>
             </a>
             <ul class="nav nav-treeview">
-                <li class="nav-item">
-                    <a href="<?=APP_URL;?>/admin/notas/carga_notas_seccion.php" class="nav-link <?= (strpos($ruta_actual, 'carga_notas_seccion') !== false) ? 'active' : '' ?>">
-                        <i class="nav-icon fas fa-users"></i>
-                        <p>Carga Masiva por Sección</p>
-                    </a>
-                </li>
                 <li class="nav-item">
                     <a href="<?=APP_URL;?>/admin/notas/crear_horarios.php" class="nav-link <?= (strpos($ruta_actual, 'crear_horarios') !== false) ? 'active' : '' ?>">
                         <i class="nav-icon fas fa-calendar-plus"></i>
@@ -507,18 +590,6 @@ $bgColor = $colors[$colorIndex];
                     <a href="<?=APP_URL;?>/admin/notas/horarios_consolidados.php" class="nav-link <?= (strpos($ruta_actual, 'horarios_consolidados') !== false) ? 'active' : '' ?>">
                         <i class="nav-icon fas fa-calendar-check"></i>
                         <p>Horarios Consolidados</p>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="<?=APP_URL;?>/admin/notas/ver_progreso_notas.php" class="nav-link <?= (strpos($ruta_actual, 'ver_progreso_notas') !== false) ? 'active' : '' ?>">
-                        <i class="nav-icon fas fa-chart-line"></i>
-                        <p>Progreso de Notas</p>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="<?=APP_URL;?>/admin/notas/historial_notas.php" class="nav-link <?= (strpos($ruta_actual, 'historial_notas') !== false) ? 'active' : '' ?>">
-                        <i class="nav-icon fas fa-history"></i>
-                        <p>Historial de Cambios</p>
                     </a>
                 </li>
             </ul>
@@ -576,8 +647,19 @@ $bgColor = $colors[$colorIndex];
         </ul>
     </li>
 <?php endif; ?>
-
-        
+                    
+                    <!-- PORTAL CMS - SOLO ADMINISTRADOR (ABRE EN NUEVA PESTAÑA) -->
+                    <?php if($rol_sesion_usuario == "ADMINISTRADOR"): ?>
+                        <li class="nav-item">
+                            <a href="<?=APP_URL;?>/admin/portal-cms/index.php" 
+                               class="nav-link <?= $es_portal_cms ? 'active' : '' ?>"
+                               target="_blank">
+                                <i class="nav-icon fas fa-globe"></i>
+                                <p>Portal Escolar CMS</p>
+                                
+                            </a>
+                        </li>
+                    <?php endif; ?>
                     
                     <!-- SOLO DIRECTOR ACADÉMICO y ADMINISTRADOR -->
                     <?php if(in_array($rol_sesion_usuario, ["ADMINISTRADOR", "DIRECTOR ACADÉMICO","DOCENTE"])): ?>
@@ -716,7 +798,7 @@ $bgColor = $colors[$colorIndex];
             cargarNotificacionesChat();
             actualizarNotificacionesSidebar();
             
-            // Actualizar cada 30 segundos
+            // Actualizar cada 30 segundos (CORREGIDO el error tipográfico)
             setInterval(cargarNotificacionesChat, 30000);
             setInterval(actualizarNotificacionesSidebar, 30000);
         });

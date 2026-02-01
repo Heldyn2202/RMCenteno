@@ -14,40 +14,95 @@ $id_grado_filtro = isset($_GET['grado']) ? $_GET['grado'] : null;
 $id_seccion_filtro = isset($_GET['id_seccion']) ? $_GET['id_seccion'] : null;
 $genero_filtro = isset($_GET['genero']) ? $_GET['genero'] : null;
 
+// Función para obtener número de grado - SOLO UNA VEZ
+function obtenerNumeroGrado($nombreGrado) {
+    if (preg_match('/(\d+)/', $nombreGrado, $matches)) {
+        return intval($matches[1]);
+    }
+    return 0;
+}
+
 // Manejo de la inserción de inscripciones  
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {  
     // Obtener los datos del formulario  
-    $nivel_id = $_POST['nivel_id'];  
-    $grado = $_POST['grado'];  
-    $id_seccion = $_POST['id_seccion'];  
-    $turno_id = $_POST['turno_id'];  
-    $talla_camisa = $_POST['talla_camisa'];  
-    $talla_pantalon = $_POST['talla_pantalon'];  
-    $talla_zapatos = $_POST['talla_zapatos'];  
-    $id_estudiante = $_POST['id_estudiante'];  
+    $nivel_id = $_POST['nivel_id'] ?? '';  
+    $grado = $_POST['grado'] ?? ''; // ID del grado
+    $id_seccion = $_POST['id_seccion'] ?? '';  
+    $turno_id = $_POST['turno_id'] ?? '';  
+    $talla_camisa = $_POST['talla_camisa'] ?? '';  
+    $talla_pantalon = $_POST['talla_pantalon'] ?? '';  
+    $talla_zapatos = $_POST['talla_zapatos'] ?? '';  
+    $id_estudiante = $_POST['id_estudiante'] ?? '';  
+    $id_gestion = $_POST['id_gestion_hidden'] ?? ''; // ID de la gestión
 
     // Verificar que id_estudiante no sea nulo  
     if (empty($id_estudiante)) {  
-        die("Error: El ID del estudiante no está definido.");  
+        $_SESSION['error'] = "El ID del estudiante no está definido.";  
+        header("Location: inscribir.php?id=" . $id_estudiante);
+        exit;  
     }  
+// ================= VALIDACIÓN DE ESTUDIANTES APLAZADOS =================
+// Verificar si el estudiante tiene aplazos pendientes
+$sql_aplazos = "SELECT COUNT(*) as total FROM estudiantes_aplazados 
+                WHERE id_estudiante = :id_estudiante 
+                AND estado = 'pendiente'";
+$query_aplazos = $pdo->prepare($sql_aplazos);
+$query_aplazos->bindParam(':id_estudiante', $id_estudiante);
+$query_aplazos->execute();
+$aplazos_info = $query_aplazos->fetch(PDO::FETCH_ASSOC);
+$tiene_aplazos = ($aplazos_info['total'] > 0);
 
-    // Obtener el periodo académico activo (estado = 1)  
-    $sql_gestiones = "SELECT * FROM gestiones WHERE estado = 1 ORDER BY desde DESC LIMIT 1";  
-    $query_gestiones = $pdo->prepare($sql_gestiones);  
-    $query_gestiones->execute();  
-    $gestion_activa = $query_gestiones->fetch(PDO::FETCH_ASSOC);  
+// Obtener el ÚLTIMO grado donde estuvo inscrito el estudiante (muy importante)
+$sql_ultima_inscripcion = "SELECT g.* FROM inscripciones i 
+                          JOIN secciones s ON i.id_seccion = s.id_seccion
+                          JOIN grados g ON s.id_grado = g.id_grado
+                          WHERE i.id_estudiante = :id_estudiante 
+                          ORDER BY i.id DESC LIMIT 1";
+$query_ultima_inscripcion = $pdo->prepare($sql_ultima_inscripcion);
+$query_ultima_inscripcion->bindParam(':id_estudiante', $id_estudiante);
+$query_ultima_inscripcion->execute();
+$ultimo_grado = $query_ultima_inscripcion->fetch(PDO::FETCH_ASSOC);
+
+// Obtener el grado seleccionado
+$sql_grado_seleccionado = "SELECT * FROM grados WHERE id_grado = :id_grado";
+$query_grado_seleccionado = $pdo->prepare($sql_grado_seleccionado);
+$query_grado_seleccionado->bindParam(':id_grado', $grado);
+$query_grado_seleccionado->execute();
+$grado_seleccionado = $query_grado_seleccionado->fetch(PDO::FETCH_ASSOC);
+
+// ===== ELIMINADO: No vuelvas a declarar la función aquí =====
+// function obtenerNumeroGrado($nombreGrado) {
+//     if (preg_match('/(\d+)/', $nombreGrado, $matches)) {
+//         return intval($matches[1]);
+//     }
+//     return 0;
+// }
+
+// VALIDACIÓN CRÍTICA: Si tiene aplazos, solo puede inscribirse en el MISMO grado
+if ($tiene_aplazos && $ultimo_grado && $grado_seleccionado) {
+    // Comparar por ID del grado, no por nombre o número
+    if ($grado_seleccionado['id_grado'] != $ultimo_grado['id_grado']) {
+        $_SESSION['error'] = "ERROR: Estudiante con aplazos pendientes solo puede inscribirse en " . 
+                            $ultimo_grado['grado'] . ". Grado solicitado: " . $grado_seleccionado['grado'];
+        header("Location: inscribir.php?id=" . $id_estudiante);
+        exit();
+    }
+}
+
+
+    // ================= FIN DE VALIDACIÓN =================
 
     // Verificar si el estudiante ya está inscrito en el periodo activo  
     $sql_verificacion = "SELECT COUNT(*) FROM inscripciones WHERE id_estudiante = :id_estudiante AND id_gestion = :id_gestion";  
     $stmt_verificacion = $pdo->prepare($sql_verificacion);  
     $stmt_verificacion->bindParam(':id_estudiante', $id_estudiante);  
-    $stmt_verificacion->bindParam(':id_gestion', $gestion_activa['id_gestion']);  
+    $stmt_verificacion->bindParam(':id_gestion', $id_gestion);  
     $stmt_verificacion->execute();  
     $inscripcion_existente = $stmt_verificacion->fetchColumn();  
 
     if ($inscripcion_existente > 0) {  
-        $_SESSION['mensaje'] = "Error: El estudiante ya está inscrito en este periodo académico.";  
-        header('Location: Lista_de_inscripcion.php');  
+        $_SESSION['error'] = "El estudiante ya está inscrito en este periodo académico.";  
+        header("Location: inscribir.php?id=" . $id_estudiante);
         exit;  
     }  
 
@@ -61,22 +116,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($seccion) {  
         // Verificar si hay cupos disponibles  
         if ($seccion['cupo_actual'] < $seccion['capacidad']) {  
-            // Preparar la consulta de inserción  
-            $sql = "INSERT INTO inscripciones (id_gestion, nivel_id, grado, id_seccion, nombre_seccion, turno_id, talla_camisa, talla_pantalon, talla_zapatos, id_estudiante, created_at, updated_at, estado)  
-                    VALUES (:id_gestion, :nivel_id, :grado, :id_seccion, :nombre_seccion, :turno_id, :talla_camisa, :talla_pantalon, :talla_zapatos, :id_estudiante, NOW(), NOW(), 'activo')";  
+            // Obtener nombre del grado
+            $sql_nombre_grado = "SELECT grado FROM grados WHERE id_grado = :grado";
+            $query_nombre_grado = $pdo->prepare($sql_nombre_grado);
+            $query_nombre_grado->bindParam(':grado', $grado);
+            $query_nombre_grado->execute();
+            $nombre_grado = $query_nombre_grado->fetch(PDO::FETCH_ASSOC);
+            
+            // Determinar si es repitente (1 para repitente, 0 para no repitente)
+            $valor_repitiente = 0; // Por defecto no es repitente
+            if ($ultimo_grado) {
+                $ultimo_numero = obtenerNumeroGrado($ultimo_grado['grado']);
+                $seleccionado_numero = obtenerNumeroGrado($nombre_grado['grado'] ?? '');
+                if ($seleccionado_numero <= $ultimo_numero) {
+                    $valor_repitiente = $es_repitente ? 1 : 0;
+                }
+            }
+            
+            // Preparar la consulta de inserción - CORREGIDO: quitar estado_inscripcion y usar es_repitiente
+            $sql = "INSERT INTO inscripciones (id_gestion, nivel_id, grado, id_seccion, nombre_seccion, turno_id, talla_camisa, talla_pantalon, talla_zapatos, es_repitiente, id_estudiante, created_at, updated_at, estado)  
+                    VALUES (:id_gestion, :nivel_id, :grado_id, :id_seccion, :nombre_seccion, :turno_id, :talla_camisa, :talla_pantalon, :talla_zapatos, :es_repitiente, :id_estudiante, NOW(), NOW(), 'activo')";  
 
             $stmt = $pdo->prepare($sql);  
 
             // Vincular los parámetros  
-            $stmt->bindParam(':id_gestion', $gestion_activa['id_gestion']);  
+            $stmt->bindParam(':id_gestion', $id_gestion);  
             $stmt->bindParam(':nivel_id', $nivel_id);  
-            $stmt->bindParam(':grado', $grado);  
+            $stmt->bindParam(':grado_id', $grado);  
             $stmt->bindParam(':id_seccion', $id_seccion);  
             $stmt->bindParam(':nombre_seccion', $seccion['nombre_seccion']);  
             $stmt->bindParam(':turno_id', $turno_id);  
             $stmt->bindParam(':talla_camisa', $talla_camisa);  
             $stmt->bindParam(':talla_pantalon', $talla_pantalon);  
             $stmt->bindParam(':talla_zapatos', $talla_zapatos);  
+            $stmt->bindParam(':es_repitiente', $valor_repitiente, PDO::PARAM_INT); // Usar es_repitiente
             $stmt->bindParam(':id_estudiante', $id_estudiante);  
 
             // Ejecutar la consulta  
@@ -89,24 +162,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $query_actualizar_cupo->bindParam(':id_seccion', $id_seccion);  
                 $query_actualizar_cupo->execute();  
                 
-                // Mostrar el nombre de la sección en el mensaje de éxito  
-                $_SESSION['mensaje'] = "Inscripción registrada con éxito en la sección: " . htmlspecialchars($seccion['nombre_seccion']);  
+                $_SESSION['success'] = "Inscripción registrada correctamente.";  
                 header('Location: Lista_de_inscripcion.php');  
                 exit;  
             } else {  
-                $_SESSION['mensaje'] = "Error al registrar la inscripción.";  
-                header('Location: Lista_de_inscripcion.php');  
+                $_SESSION['error'] = "Error al registrar la inscripción.";  
+                header("Location: inscribir.php?id=" . $id_estudiante);
                 exit;  
             }  
         } else {  
             // No hay cupos disponibles  
-            $_SESSION['mensaje'] = "Error: No hay cupos disponibles en esta sección.";  
-            header('Location: Lista_de_inscripcion.php');  
+            $_SESSION['error'] = "No hay cupos disponibles en esta sección.";  
+            header("Location: inscribir.php?id=" . $id_estudiante);
             exit;  
         }  
     } else {  
-        $_SESSION['mensaje'] = "Error: Sección no encontrada.";  
-        header('Location: Lista_de_inscripcion.php');  
+        $_SESSION['error'] = "Sección no encontrada.";  
+        header("Location: inscribir.php?id=" . $id_estudiante);
         exit;  
     }  
 }  
@@ -119,11 +191,11 @@ $gestion_activa = $query_gestiones->fetch(PDO::FETCH_ASSOC);
 
 // Obtener las inscripciones que pertenecen al periodo académico activo  
 $sql_inscripciones = "SELECT i.*, e.id_estudiante, e.nombres, e.apellidos, e.genero, s.nombre_seccion, g.grado 
-FROM inscripciones i  
-JOIN estudiantes e ON i.id_estudiante = e.id_estudiante  
-JOIN secciones s ON i.id_seccion = s.id_seccion 
-JOIN grados g ON i.grado = g.id_grado  
-WHERE i.id_gestion = :id_gestion"; 
+                      FROM inscripciones i  
+                      JOIN estudiantes e ON i.id_estudiante = e.id_estudiante  
+                      JOIN secciones s ON i.id_seccion = s.id_seccion 
+                      JOIN grados g ON i.grado = g.id_grado  
+                      WHERE i.id_gestion = :id_gestion"; 
 
 // Filtrar por sección, grado y género si se proporciona
 $id_seccion_filtro = isset($_GET['id_seccion']) ? $_GET['id_seccion'] : null;
@@ -141,6 +213,8 @@ if ($grado_filtro) {
 if ($genero_filtro) {  
     $sql_inscripciones .= " AND e.genero = :genero";  
 }
+
+$sql_inscripciones .= " ORDER BY g.grado, s.nombre_seccion, e.apellidos, e.nombres";
 
 $query_inscripciones = $pdo->prepare($sql_inscripciones);  
 $query_inscripciones->bindParam(':id_gestion', $gestion_activa['id_gestion']);  
@@ -172,10 +246,21 @@ $query_secciones->execute();
 $secciones = $query_secciones->fetchAll(PDO::FETCH_ASSOC);  
 
 // Obtener todos los grados para llenar el select  
-$sql_grados = "SELECT * FROM grados WHERE estado = 1";  
+$sql_grados = "SELECT * FROM grados WHERE estado = 1 ORDER BY nivel, grado";  
 $query_grados = $pdo->prepare($sql_grados);  
 $query_grados->execute();  
 $grados = $query_grados->fetchAll(PDO::FETCH_ASSOC);  
+
+// Obtener secciones filtradas por grado si hay filtro
+$secciones_filtradas = [];
+if ($grado_filtro) {
+    $sql_secciones_filtro = "SELECT * FROM secciones WHERE id_gestion = :id_gestion AND id_grado = :grado AND estado = 1";
+    $query_secciones_filtro = $pdo->prepare($sql_secciones_filtro);
+    $query_secciones_filtro->bindParam(':id_gestion', $gestion_activa['id_gestion']);
+    $query_secciones_filtro->bindParam(':grado', $grado_filtro);
+    $query_secciones_filtro->execute();
+    $secciones_filtradas = $query_secciones_filtro->fetchAll(PDO::FETCH_ASSOC);
+}
 ?>
 <!-- Content Wrapper. Contains page content -->  
 <div class="content-wrapper">  
@@ -209,25 +294,37 @@ $grados = $query_grados->fetchAll(PDO::FETCH_ASSOC);
                         <div class="row align-items-end">  
                             <div class="form-group col-md-3 mb-0">  
                                 <label for="grado" class="form-label small font-weight-bold text-muted">Grado</label>  
-                                <select name="grado" id="grado" class="form-control select2" onchange="cargarSecciones(this.value)">  
+                                <select name="grado" id="grado" class="form-control select2" onchange="this.form.submit()">  
                                     <option value="">Todos los Grados</option>  
-                                    <?php foreach ($grados as $grado): ?>  
-                                        <option value="<?= htmlspecialchars($grado['id_grado']); ?>" <?= ($id_grado_filtro == $grado['id_grado']) ? 'selected' : ''; ?>>  
-                                            <?= htmlspecialchars($grado['grado']); ?>  
+                                    <?php foreach ($grados as $grado_item): ?>  
+                                        <option value="<?= htmlspecialchars($grado_item['id_grado']); ?>" <?= ($grado_filtro == $grado_item['id_grado']) ? 'selected' : ''; ?>>  
+                                            <?= htmlspecialchars($grado_item['grado']); ?>  
                                         </option>  
                                     <?php endforeach; ?>  
                                 </select>  
                             </div>  
                             <div class="form-group col-md-3 mb-0">  
                                 <label for="id_seccion" class="form-label small font-weight-bold text-muted">Sección</label>  
-                                <select name="id_seccion" id="id_seccion" class="form-control select2">  
+                                <select name="id_seccion" id="id_seccion" class="form-control select2" onchange="this.form.submit()">  
                                     <option value="">Todas las Secciones</option>  
-                                    <!-- Las secciones se cargarán aquí mediante AJAX -->
+                                    <?php if ($grado_filtro): ?>
+                                        <?php foreach ($secciones_filtradas as $seccion): ?>
+                                            <option value="<?= htmlspecialchars($seccion['id_seccion']); ?>" <?= ($id_seccion_filtro == $seccion['id_seccion']) ? 'selected' : ''; ?>>  
+                                                <?= htmlspecialchars($seccion['nombre_seccion']); ?>  
+                                            </option>  
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <?php foreach ($secciones as $seccion): ?>
+                                            <option value="<?= htmlspecialchars($seccion['id_seccion']); ?>" <?= ($id_seccion_filtro == $seccion['id_seccion']) ? 'selected' : ''; ?>>  
+                                                <?= htmlspecialchars($seccion['nombre_seccion']); ?>  
+                                            </option>  
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </select>  
                             </div>  
                             <div class="form-group col-md-3 mb-0">  
                                 <label for="genero" class="form-label small font-weight-bold text-muted">Género</label>  
-                                <select name="genero" id="genero" class="form-control select2">  
+                                <select name="genero" id="genero" class="form-control select2" onchange="this.form.submit()">  
                                     <option value="">Todos los Géneros</option>  
                                     <option value="Masculino" <?= ($genero_filtro == 'Masculino') ? 'selected' : ''; ?>>Masculino</option>  
                                     <option value="Femenino" <?= ($genero_filtro == 'Femenino') ? 'selected' : ''; ?>>Femenino</option>  
@@ -235,9 +332,9 @@ $grados = $query_grados->fetchAll(PDO::FETCH_ASSOC);
                             </div>  
                             <div class="form-group col-md-3 mb-0">  
                                 <label class="form-label small font-weight-bold text-muted d-block">&nbsp;</label>  
-                                <button type="submit" class="btn btn-info btn-block shadow-sm">
-                                    <i class="fa fa-filter mr-1"></i> Filtrar
-                                </button>  
+                                <a href="Lista_de_inscripcion.php" class="btn btn-secondary btn-block shadow-sm">
+                                    <i class="fas fa-redo mr-1"></i> Limpiar Filtros
+                                </a>  
                             </div>  
                         </div>  
                     </form>  
@@ -253,7 +350,14 @@ $grados = $query_grados->fetchAll(PDO::FETCH_ASSOC);
                                     <h5 class="m-0 text-dark">
                                         <i class="fas fa-user-graduate mr-2"></i>
                                         Estudiantes Inscritos
+                                        <span class="badge badge-info ml-2"><?= $total_inscripciones ?></span>
                                     </h5>
+                                </div>
+                                <div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar-alt mr-1"></i>
+                                        Periodo: <?= htmlspecialchars($gestion_activa['desde'] ?? '') ?> - <?= htmlspecialchars($gestion_activa['hasta'] ?? '') ?>
+                                    </small>
                                 </div>
                             </div>
                         </div>  
@@ -284,6 +388,7 @@ $grados = $query_grados->fetchAll(PDO::FETCH_ASSOC);
                                             <th class="text-center">Talla Camisa</th>  
                                             <th class="text-center">Talla Pantalón</th>  
                                             <th class="text-center">Talla Zapatos</th>  
+                                            <th class="text-center">Estado</th>
                                             <th class="text-center">Acciones</th>  
                                         </tr>  
                                     </thead>  
@@ -292,6 +397,16 @@ $grados = $query_grados->fetchAll(PDO::FETCH_ASSOC);
                                         $contador_inscripciones = 0;
                                         foreach ($inscripciones as $inscripcion): 
                                             $contador_inscripciones++;
+                                            // Determinar badge color según es_repitiente - CORREGIDO
+                                            $estado_badge = '';
+                                            $estado_texto = '';
+                                            if ($inscripcion['es_repitiente'] == 1) {
+                                                $estado_badge = 'danger';
+                                                $estado_texto = 'Repitente';
+                                            } else {
+                                                $estado_badge = 'success';
+                                                $estado_texto = 'Regular';
+                                            }
                                         ?>  
                                             <tr>  
                                                 <td class="text-center align-middle">
@@ -306,9 +421,11 @@ $grados = $query_grados->fetchAll(PDO::FETCH_ASSOC);
                                                         <div>
                                                             <b class="text-dark"><?= htmlspecialchars($inscripcion['nombres'] . ' ' . $inscripcion['apellidos']); ?></b>
                                                             <br>
-                                                            <small class="text-muted">
-                                                                <?= htmlspecialchars($inscripcion['genero']); ?>
-                                                            </small>
+                                                            <div class="d-flex align-items-center mt-1">
+                                                                <small class="text-muted mr-2">
+                                                                    <?= htmlspecialchars($inscripcion['genero']); ?>
+                                                                </small>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </td>  
@@ -322,7 +439,7 @@ $grados = $query_grados->fetchAll(PDO::FETCH_ASSOC);
                                                     <span class="badge badge-success p-2"><?= htmlspecialchars($inscripcion['nombre_seccion']); ?></span>
                                                 </td>  
                                                 <td class="text-center align-middle">
-                                                    <span class="font-weight-bold text-dark"><?= htmlspecialchars($turno_map[$inscripcion['turno_id']]); ?></span>
+                                                    <span class="font-weight-bold text-dark"><?= htmlspecialchars($turno_map[$inscripcion['turno_id']] ?? $inscripcion['turno_id']); ?></span>
                                                 </td>  
                                                 <td class="text-center align-middle">
                                                     <span class="font-weight-bold text-dark"><?= htmlspecialchars($inscripcion['talla_camisa']); ?></span>
@@ -333,6 +450,11 @@ $grados = $query_grados->fetchAll(PDO::FETCH_ASSOC);
                                                 <td class="text-center align-middle">
                                                     <span class="font-weight-bold text-dark"><?= htmlspecialchars($inscripcion['talla_zapatos']); ?></span>
                                                 </td>  
+                                                <td class="text-center align-middle">
+                                                    <span class="badge badge-<?= $estado_badge ?> badge-pill" style="font-size: 0.65rem;">
+                                                        <?= $estado_texto ?>
+                                                    </span>
+                                                </td>
                                                 <td class="text-center align-middle">  
                                                     <div class="btn-group btn-group-sm shadow-sm">
                                                         <a href="show_inc.php?id=<?= htmlspecialchars($inscripcion['id_estudiante']); ?>" 
@@ -360,27 +482,9 @@ include('../../admin/layout/parte2.php');
 include('../../layout/mensajes.php');  
 ?>
 
+<!-- SweetAlert2 y otros scripts -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-function cargarSecciones(gradoId) {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET", "get_secciones.php?grado_id=" + gradoId, true);
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState == 4 && xhr.status == 200) {
-            var secciones = JSON.parse(xhr.responseText);
-            var seccionSelect = document.getElementById("id_seccion");
-            seccionSelect.innerHTML = '<option value="">Todas las Secciones</option>';
-
-            secciones.forEach(function(seccion) {
-                var option = document.createElement("option");
-                option.value = seccion.id_seccion;
-                option.text = seccion.nombre_seccion;
-                seccionSelect.appendChild(option);
-            });
-        }
-    };
-    xhr.send();
-}
-
 // Inicializar select2
 $(document).ready(function(){
     $('.select2').select2({
@@ -391,12 +495,34 @@ $(document).ready(function(){
     });
 });
 
-// Mostrar mensaje de alerta si hay un mensaje en la sesión
+// Mostrar mensaje SweetAlert2 si hay mensajes de éxito/error
+<?php if (isset($_SESSION['success'])): ?>
+    Swal.fire({
+        title: '¡Inscripción Exitosa!',
+        text: 'La inscripción se ha registrado correctamente.',
+        icon: 'success',
+        confirmButtonText: 'Aceptar',
+        timer: 3000,
+        timerProgressBar: true
+    });
+    <?php unset($_SESSION['success']); ?>
+<?php endif; ?>
+
+<?php if (isset($_SESSION['error'])): ?>
+    Swal.fire({
+        title: '¡Error!',
+        text: '<?= addslashes($_SESSION['error']) ?>',
+        icon: 'error',
+        confirmButtonText: 'Aceptar'
+    });
+    <?php unset($_SESSION['error']); ?>
+<?php endif; ?>
+
 <?php if (isset($_SESSION['mensaje'])): ?>
     Swal.fire({
-        title: '¡Atención!',
-        text: '<?= $_SESSION['mensaje']; ?>',
-        icon: '<?= strpos($_SESSION['mensaje'], 'Error') !== false ? 'error' : 'success'; ?>',
+        title: 'Atención',
+        text: '<?= addslashes($_SESSION['mensaje']); ?>',
+        icon: 'info',
         confirmButtonText: 'Aceptar'
     });
     <?php unset($_SESSION['mensaje']); ?>
@@ -430,8 +556,8 @@ $(document).ready(function(){
             "lengthChange": true, 
             "autoWidth": false,
             "columnDefs": [
-                { "orderable": false, "targets": [9] },
-                { "searchable": false, "targets": [9] }
+                { "orderable": false, "targets": [9, 10] },
+                { "searchable": false, "targets": [9, 10] }
             ],
             initComplete: function() {
                 $('.dt-buttons').addClass('btn-group');
@@ -440,7 +566,8 @@ $(document).ready(function(){
             },
             "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
                    '<"row"<"col-sm-12"tr>>' +
-                   '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>'
+                   '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            "order": [[1, "asc"]] // Ordenar por nombre por defecto
         }).buttons().container().appendTo('#example1_wrapper .col-md-6:eq(0)');
     });
 </script>
@@ -487,6 +614,9 @@ $(document).ready(function(){
 }
 .badge-success {
     background-color: #28a745;
+}
+.badge-danger {
+    background-color: #dc3545;
 }
 .badge-info {
     background-color: #17a2b8;

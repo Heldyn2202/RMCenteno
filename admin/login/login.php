@@ -809,7 +809,7 @@ if (isset($_SESSION['login_id'])) {
             <form action="controller_login.php" method="post" id="loginForm" autocomplete="on">  
 
                 <div class="input-group">  
-                    <input type="email" name="email" class="form-control" placeholder="Correo electrónico"  autocapitalize="off" inputmode="email">
+                    <input type="email" name="email" class="form-control" placeholder="Correo electrónico"  autocomplete="off" inputmode="email">
                     <div class="input-group-append">  
                         <div class="input-group-text">  
                             <span class="fas fa-envelope"></span>  

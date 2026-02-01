@@ -1215,10 +1215,10 @@ if ($rol_sesion_usuario == "DOCENTE") {
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
                                     <?php  
-                                    $contador_administrativos = count($administrativos);  
+                                    $contador_usuarios = count($usuarios);  
                                     ?>  
-                                    <h3 style="color: #3c8dbc; font-weight: 700; margin-bottom: 0.5rem;"><?=$contador_administrativos;?></h3>  
-                                    <p class="text-muted mb-2">Administrativos</p>
+                                    <h3 style="color: #3c8dbc; font-weight: 700; margin-bottom: 0.5rem;"><?=$contador_usuarios;?></h3>  
+                                    <p class="text-muted mb-2">Usuarios</p>
                                     <small class="text-muted"><?=count($roles)?> roles activos</small>
                                 </div>  
                                 <div class="icon-dashboard" style="background: linear-gradient(135deg, rgba(60, 141, 188, 0.1) 0%, rgba(45, 95, 126, 0.1) 100%); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
@@ -1226,7 +1226,7 @@ if ($rol_sesion_usuario == "DOCENTE") {
                                 </div>  
                             </div>
                         </div>  
-                        <a href="<?=APP_URL;?>/admin/administrativos" class="card-footer custom-btn text-white text-center" style="text-decoration: none; display: block; padding: 0.75rem;">  
+                        <a href="<?=APP_URL;?>/admin/usuarios" class="card-footer custom-btn text-white text-center" style="text-decoration: none; display: block; padding: 0.75rem;">  
                             Ver todos <i class="fas fa-arrow-circle-right ml-1"></i>  
                         </a>  
                     </div>  

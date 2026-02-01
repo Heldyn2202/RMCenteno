@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Portal Escolar - Institución Educativa</title>
+    <title>U.E. Roberto Martinez Centeno - Institución Educativa</title>
     
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -657,70 +657,6 @@
             object-fit: contain;
         }
         
-        /* Footer */
-        .site-footer {
-            background-color: var(--primary-color);
-            color: var(--white);
-        }
-        
-        .footer-main {
-            padding: 60px 0 30px;
-        }
-        
-        .footer-logo img {
-            height: 80px;
-            margin-bottom: 20px;
-        }
-        
-        .footer-info {
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        
-        .footer-info a {
-            color: var(--white);
-        }
-        
-        .footer-info a:hover {
-            color: var(--light-bg);
-        }
-        
-        .footer-social {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .footer-social a {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background-color: rgba(255,255,255,0.1);
-            color: var(--white);
-        }
-        
-        .footer-social a:hover {
-            background-color: var(--white);
-            color: var(--primary-color);
-        }
-        
-        .footer-bottom {
-            background-color: var(--dark-bg);
-            padding: 20px 0;
-            font-size: 14px;
-        }
-        
-        .footer-bottom a {
-            color: var(--white);
-        }
-        
-        .footer-bottom a:hover {
-            color: var(--light-bg);
-        }
-        
         /* Botones */
         .btn-primary {
             background-color: var(--primary-color);
@@ -741,6 +677,101 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 15px;
+        }
+        
+        /* ===========================================
+           FOOTER COMPACTO (Mismo estilo que Quiénes Somos)
+           =========================================== */
+        
+        .site-footer {
+            background-color: #1a1a1a; /* Negro más oscuro */
+            color: var(--white);
+            padding: 20px 0 10px;
+        }
+        
+        .footer-main {
+            padding: 0;
+        }
+        
+        /* Contenedor principal más compacto */
+        .footer-main .container {
+            padding: 0 10px;
+        }
+        
+        /* Descripción - texto justificado */
+        .footer-main p {
+            font-size: 0.9rem !important;
+            line-height: 1.5 !important;
+            color: rgba(255, 255, 255, 0.9) !important;
+            margin-bottom: 10px !important;
+        }
+        
+        /* Información de contacto COMPACTA */
+        .contact-info {
+            font-size: 0.8rem !important;
+            color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .contact-info span {
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+        
+        .contact-info i {
+            font-size: 0.8rem;
+            color: #4a8cff; /* Azul para los iconos */
+        }
+        
+        .contact-info a {
+            color: white !important;
+            text-decoration: none !important;
+            transition: color 0.3s ease;
+        }
+        
+        .contact-info a:hover {
+            color: #4a8cff !important;
+            text-decoration: underline !important;
+        }
+        
+        /* REDES SOCIALES centradas */
+        .footer-social {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 10px 0;
+        }
+        
+        .footer-social .social-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: rgba(255,255,255,0.1);
+            color: var(--white);
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+        
+        .footer-social .social-icon:hover {
+            background-color: #4a8cff; /* Azul al hover */
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        /* Derechos y créditos en una línea */
+        .footer-bottom-content {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.8);
+            padding-top: 8px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 8px;
         }
         
         /* Responsive */
@@ -772,6 +803,11 @@
             .mobile-nav-container {
                 display: block;
             }
+            
+            /* Footer responsive */
+            .site-footer {
+                padding: 15px 0 8px;
+            }
         }
         
         @media (max-width: 768px) {
@@ -794,6 +830,42 @@
             .hm-slider-nav {
                 display: none;
             }
+            
+            /* Footer responsive para tablet */
+            .footer-main p {
+                font-size: 0.85rem !important;
+                line-height: 1.4 !important;
+                margin-bottom: 8px !important;
+            }
+            
+            .contact-info {
+                font-size: 0.75rem !important;
+                flex-direction: column;
+                gap: 5px;
+                align-items: center;
+            }
+            
+            .contact-info span {
+                margin-right: 0 !important;
+                margin-bottom: 4px;
+            }
+            
+            .footer-social {
+                gap: 6px;
+                margin: 8px 0;
+            }
+            
+            .footer-social .social-icon {
+                width: 28px;
+                height: 28px;
+                font-size: 0.8rem;
+            }
+            
+            .footer-bottom-content {
+                font-size: 0.7rem;
+                padding-top: 6px;
+                margin-top: 6px;
+            }
         }
         
         @media (max-width: 576px) {
@@ -807,6 +879,17 @@
             
             .hm-slide-content {
                 padding: 20px;
+            }
+            
+            /* Footer responsive para móviles */
+            .footer-bottom-content {
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+            }
+            
+            .footer-bottom-content span:nth-child(2) {
+                display: none; /* Oculta el separador "|" en móviles */
             }
         }
     </style>
@@ -888,7 +971,7 @@
             <div class="container">
                 <div class="hm-header-inner">
                     <div class="site-branding">
-                        <h2 class="site-title"><a href="index.php">Portal Escolar</a></h2>
+                        <h4 class="site-title"><a href="index.php">U.E. Roberto Martinez Centeno</a></h2>
                     </div>
                     
                     <nav class="main-navigation">
@@ -970,90 +1053,111 @@
         </div>
     </div>
 
-    <!-- Slider Principal -->
-    <div class="hm-slider">
-        <div class="hm-slides-container">
-            <?php if ($carruselCount > 0): ?>
-                <?php foreach ($carruselItems as $index => $item): ?>
-                <div class="hm-slide <?php echo $index === 0 ? 'active' : ''; ?>">
-                    <div class="hm-slide-image">
-                        <img src="admin/uploads/carrusel/<?php echo htmlentities($item['imagen_path']); ?>" alt="<?php echo htmlentities($item['titulo']); ?>" onerror="this.src='https://placehold.co/1200x500/1a4b8c/white?text=Portal+Escolar'">
-                    </div>
-                    <div class="hm-fp-overlay"></div>
-                    <div class="hm-slide-content">
-                        <div class="hm-slider-details-container">
-                            <h2 class="hm-slider-title"><?php echo htmlentities($item['titulo']); ?></h2>
-                            <?php if (!empty($item['descripcion'])): ?>
-                                <p><?php echo htmlentities($item['descripcion']); ?></p>
-                            <?php endif; ?>
-                        </div>
+   <!-- Slider Principal -->
+<div class="hm-slider">
+    <div class="hm-slides-container">
+        <?php if ($carruselCount > 0): ?>
+            <?php foreach ($carruselItems as $index => $item): 
+                // ¡¡¡RUTA CORREGIDA!!!
+                $ruta_imagen = '/heldyn/centeno/uploads/carrusel/' . $item['imagen_path'];
+            ?>
+            <div class="hm-slide <?php echo $index === 0 ? 'active' : ''; ?>">
+                <div class="hm-slide-image">
+                    <img src="<?php echo $ruta_imagen; ?>" 
+                         alt="<?php echo htmlentities($item['titulo']); ?>" 
+                         onerror="this.onerror=null; this.src='https://placehold.co/1200x500/1a4b8c/white?text=Portal+Escolar'; console.error('Error cargando imagen:', '<?php echo addslashes($ruta_imagen); ?>')">
+                </div>
+                <div class="hm-fp-overlay"></div>
+                <div class="hm-slide-content">
+                    <div class="hm-slider-details-container">
+                        <h2 class="hm-slider-title"><?php echo htmlentities($item['titulo']); ?></h2>
+                        <?php if (!empty($item['descripcion'])): ?>
+                            <p><?php echo htmlentities($item['descripcion']); ?></p>
+                        <?php endif; ?>
                     </div>
                 </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <!-- Slides por defecto si no hay carrusel -->
-                <div class="hm-slide active">
-                    <div class="hm-slide-image">
-                        <img src="https://placehold.co/1200x500/1a4b8c/white?text=Portal+Escolar" alt="Portal Escolar">
-                    </div>
-                    <div class="hm-fp-overlay"></div>
-                    <div class="hm-slide-content">
-                        <div class="hm-slider-details-container">
-                            <h2 class="hm-slider-title">Bienvenido al Portal Escolar</h2>
-                            <p>Innovación educativa para el desarrollo integral de nuestros estudiantes</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="hm-slide">
-                    <div class="hm-slide-image">
-                        <img src="https://placehold.co/1200x500/2d68c4/white?text=Educación+de+Calidad" alt="Educación de Calidad">
-                    </div>
-                    <div class="hm-fp-overlay"></div>
-                    <div class="hm-slide-content">
-                        <div class="hm-slider-details-container">
-                            <h2 class="hm-slider-title">Educación de Calidad para Todos</h2>
-                            <p>Recursos y herramientas para el aprendizaje integral</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="hm-slide">
-                    <div class="hm-slide-image">
-                        <img src="https://placehold.co/1200x500/1a2238/white?text=Comunidad+Educativa" alt="Comunidad Educativa">
-                    </div>
-                    <div class="hm-fp-overlay"></div>
-                    <div class="hm-slide-content">
-                        <div class="hm-slider-details-container">
-                            <h2 class="hm-slider-title">Comunidad Educativa Activa</h2>
-                            <p>Padres, estudiantes y docentes trabajando juntos</p>
-                        </div>
-                    </div>
-                </div>
-            <?php endif; ?>
-        </div>
-        
-        <!-- Controles del carrusel -->
-        <?php if ($carruselCount > 1): ?>
-        <div class="hm-slider-nav">
-            <button class="hm-slider-prev">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <button class="hm-slider-next">
-                <i class="fas fa-chevron-right"></i>
-            </button>
-        </div>
-        
-        <div class="hm-slider-controls">
-            <div class="hm-slider-dots">
-                <?php for ($i = 0; $i < $carruselCount; $i++): ?>
-                <div class="hm-slider-dot <?php echo $i === 0 ? 'active' : ''; ?>" data-index="<?php echo $i; ?>"></div>
-                <?php endfor; ?>
             </div>
-        </div>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <!-- Slides por defecto si no hay carrusel -->
+            <div class="hm-slide active">
+                <div class="hm-slide-image">
+                    <img src="https://placehold.co/1200x500/1a4b8c/white?text=Portal+Escolar" alt="Portal Escolar">
+                </div>
+                <div class="hm-fp-overlay"></div>
+                <div class="hm-slide-content">
+                    <div class="hm-slider-details-container">
+                        <h2 class="hm-slider-title">Bienvenido al Portal Escolar</h2>
+                        <p>Innovación educativa para el desarrollo integral de nuestros estudiantes</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hm-slide">
+                <div class="hm-slide-image">
+                    <img src="https://placehold.co/1200x500/2d68c4/white?text=Educación+de+Calidad" alt="Educación de Calidad">
+                </div>
+                <div class="hm-fp-overlay"></div>
+                <div class="hm-slide-content">
+                    <div class="hm-slider-details-container">
+                        <h2 class="hm-slider-title">Educación de Calidad para Todos</h2>
+                        <p>Recursos y herramientas para el aprendizaje integral</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hm-slide">
+                <div class="hm-slide-image">
+                    <img src="https://placehold.co/1200x500/1a2238/white?text=Comunidad+Educativa" alt="Comunidad Educativa">
+                </div>
+                <div class="hm-fp-overlay"></div>
+                <div class="hm-slide-content">
+                    <div class="hm-slider-details-container">
+                        <h2 class="hm-slider-title">Comunidad Educativa Activa</h2>
+                        <p>Padres, estudiantes y docentes trabajando juntos</p>
+                    </div>
+                </div>
+            </div>
         <?php endif; ?>
     </div>
+    
+    <!-- Controles del carrusel -->
+    <?php if ($carruselCount > 1): ?>
+    <div class="hm-slider-nav">
+        <button class="hm-slider-prev">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <button class="hm-slider-next">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+    
+    <div class="hm-slider-controls">
+        <div class="hm-slider-dots">
+            <?php for ($i = 0; $i < $carruselCount; $i++): ?>
+            <div class="hm-slider-dot <?php echo $i === 0 ? 'active' : ''; ?>" data-index="<?php echo $i; ?>"></div>
+            <?php endfor; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+</div>
 
+<!-- Script de depuración para el carrusel -->
+<script>
+console.log('🔍 DEPURACIÓN CARRUSEL PRINCIPAL');
+<?php if ($carruselCount > 0): ?>
+    <?php foreach ($carruselItems as $index => $item): ?>
+        const img<?php echo $index; ?> = new Image();
+        img<?php echo $index; ?>.onload = function() {
+            console.log('✅ Slide <?php echo $index + 1; ?> cargado: <?php echo addslashes($item['titulo']); ?>');
+        };
+        img<?php echo $index; ?>.onerror = function() {
+            console.error('❌ Error slide <?php echo $index + 1; ?>: /heldyn/centeno/uploads/carrusel/<?php echo addslashes($item['imagen_path']); ?>');
+        };
+        img<?php echo $index; ?>.src = '/heldyn/centeno/uploads/carrusel/<?php echo addslashes($item['imagen_path']); ?>';
+    <?php endforeach; ?>
+<?php endif; ?>
+</script>
     <!-- Ejes de Gestión -->
     <section class="ejes-section">
         <div class="container">
@@ -1241,66 +1345,115 @@
                 </div>
                 <div class="ente-logo">
                     <a href="#">
-                        <img src="https://placehold.co/120x60/1a2238/white?text=Quimica" alt="Deportes">
+                        <img src="https://placehold.co/120x60/1a2238/white?text=Quimica" alt="Química">
                     </a>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Footer -->
-    <footer class="site-footer">
-        <div class="footer-main">
-            <div class="container">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="footer-logo">
-                            <h3 style="color: white; margin-bottom: 20px;">Portal Escolar</h3>
-                        </div>
-                        <div class="footer-info">
-                            <p><strong>Dirección:</strong> Calle Principal #123, Colonia Centro. Código Postal 12345</p>
-                            <p><strong>Contacto:</strong> <a href="mailto:info@colegioejemplo.edu">info@colegioejemplo.edu</a></p>
-                            <p><strong>Teléfono:</strong> <a href="tel:+1234567890">+123 456 7890</a></p>
-                        </div>
-                        <div class="footer-social">
-                            <?php foreach ($social_media as $social): ?>
-                            <a href="<?php echo $social['url']; ?>" target="_blank">
-                                <?php if ($social['icon_type'] == 'fontawesome'): ?>
-                                    <i class="<?php echo $social['icon']; ?>"></i>
-                                <?php else: ?>
-                                    <img src="admin/<?php echo $social['icon']; ?>" width="16" height="16">
-                                <?php endif; ?>
-                            </a>
-                            <?php endforeach; ?>
-                        </div>
+    <?php
+// Obtener configuración del footer desde la base de datos
+$footerQuery = "SELECT * FROM footer_config WHERE id = 1";
+$footerResult = mysqli_query($con, $footerQuery);
+$footer_config = mysqli_fetch_assoc($footerResult);
+
+if (!$footer_config) {
+    // Valores por defecto
+    $footer_config = [
+        'titulo_izquierda' => 'Portal Escolar',
+        'direccion' => 'Caricuso, Urbanización García',
+        'email' => 'RobertoVC@gmail.com',
+        'telefono' => '021223392',
+        'titulo_derecha' => 'Portal Escolar',
+        'descripcion_derecha' => 'El Portal Escolar es la plataforma oficial de comunicación e información educativa, dedicada a promover la innovación y el desarrollo integral en el ámbito educativo. Nuestro compromiso es brindar recursos, herramientas y contenidos de calidad para fortalecer el proceso de enseñanza-aprendizaje de nuestra comunidad educativa.',
+        'derechos_autor' => '© [año] Portal Escolar | Institución Educativa',
+        'creditos' => 'Desarrollado para la comunidad educativa'
+    ];
+}
+
+// Reemplazar [año] por el año actual
+$derechos_actual = str_replace('[año]', date('Y'), $footer_config['derechos_autor']);
+?>
+
+<!-- Footer Compacto y Elegante (Mismo estilo que Quiénes Somos) -->
+<footer class="site-footer">
+    <div class="footer-main">
+        <div class="container">
+            <!-- Primera fila: Descripción -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <p style="font-size: 0.9rem; line-height: 1.5; text-align: justify; color: rgba(255,255,255,0.9); margin: 0 5px 8px 5px;">
+                        <?php echo nl2br(htmlspecialchars($footer_config['descripcion_derecha'])); ?>
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Línea divisoria -->
+            <div style="border-top: 1px solid rgba(255,255,255,0.15); margin: 10px auto; max-width: 500px;"></div>
+            
+            <!-- Redes Sociales Centradas -->
+            <div class="row mb-3">
+                <div class="col-12 text-center">
+                    <div class="footer-social">
+                        <?php foreach ($social_media as $social): ?>
+                        <a href="<?php echo $social['url']; ?>" target="_blank" class="social-icon">
+                            <?php if ($social['icon_type'] == 'fontawesome'): ?>
+                                <i class="<?php echo $social['icon']; ?>"></i>
+                            <?php else: ?>
+                                <img src="admin/<?php echo $social['icon']; ?>" width="12" height="12">
+                            <?php endif; ?>
+                        </a>
+                        <?php endforeach; ?>
                     </div>
-                    <div class="col-md-6">
-                        <div class="footer-info">
-                            <h3 style="color: white; margin-bottom: 20px;">Portal Escolar</h3>
-                            <p>El Portal Escolar es la plataforma oficial de comunicación e información educativa, dedicada a promover la innovación y el desarrollo integral en el ámbito educativo.</p>
-                            <p>Nuestro compromiso es brindar recursos, herramientas y contenidos de calidad para fortalecer el proceso de enseñanza-aprendizaje de nuestra comunidad educativa.</p>
-                        </div>
+                </div>
+            </div>
+            
+            <!-- Información de contacto COMPACTA -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="contact-info text-center" style="font-size: 0.8rem;">
+                        <?php if (!empty($footer_config['direccion'])): ?>
+                            <span style="margin-right: 15px;">
+                                <i class="fas fa-map-marker-alt" style="margin-right: 5px;"></i>
+                                <?php echo htmlspecialchars($footer_config['direccion']); ?>
+                            </span>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($footer_config['email'])): ?>
+                            <span style="margin-right: 15px;">
+                                <i class="fas fa-envelope" style="margin-right: 5px;"></i>
+                                <a href="mailto:<?php echo htmlspecialchars($footer_config['email']); ?>" style="color: white; text-decoration: none;">
+                                    <?php echo htmlspecialchars($footer_config['email']); ?>
+                                </a>
+                            </span>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($footer_config['telefono'])): ?>
+                            <span>
+                                <i class="fas fa-phone" style="margin-right: 5px;"></i>
+                                <a href="tel:<?php echo htmlspecialchars($footer_config['telefono']); ?>" style="color: white; text-decoration: none;">
+                                    <?php echo htmlspecialchars($footer_config['telefono']); ?>
+                                </a>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Derechos y créditos EN LA MISMA LÍNEA -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="footer-bottom-content text-center" style="font-size: 0.75rem; color: rgba(255,255,255,0.8); padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 8px;">
+                        <span><?php echo htmlspecialchars($derechos_actual); ?></span>
+                        <span style="margin: 0 10px;">|</span>
+                        <span><?php echo htmlspecialchars($footer_config['creditos']); ?></span>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="footer-bottom">
-            <div class="container">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="footer-copyright">
-                            &copy; <?php echo date('Y'); ?> Portal Escolar | Institución Educativa
-                        </div>
-                    </div>
-                    <div class="col-md-6 text-end">
-                        <div class="footer-credits">
-                            Desarrollado para la comunidad educativa
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </footer>
+    </div>
+</footer>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

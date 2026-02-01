@@ -131,9 +131,22 @@ if ($id_seccion > 0) {
                 }
                 
                 $dias = ['Lunes','Martes','Miércoles','Jueves','Viernes'];
+                // Actualizado según la parrilla de la imagen (07:00 AM - 05:10 PM)
                 $bloques = [
-                    ['07:50:00','08:30:00'],['08:30:00','09:10:00'],['09:10:00','09:50:00'],
-                    ['10:10:00','10:50:00'],['10:50:00','11:30:00'],['11:30:00','12:10:00']
+                    ['07:00:00','07:40:00'],   // Período 1
+                    ['07:40:00','08:20:00'],   // Período 2
+                    ['08:20:00','09:00:00'],   // Período 3
+                    ['09:00:00','09:40:00'],   // Período 4
+                    ['09:50:00','10:30:00'],   // Período 5
+                    ['10:30:00','11:10:00'],   // Período 6
+                    ['11:10:00','11:50:00'],   // Período 7
+                    ['11:50:00','12:30:00'],   // Período 8
+                    ['01:00:00','01:40:00'],   // Período 9
+                    ['01:40:00','02:20:00'],   // Período 10
+                    ['02:30:00','03:10:00'],   // Período 11
+                    ['03:10:00','03:50:00'],   // Período 12
+                    ['03:50:00','04:30:00'],   // Período 13
+                    ['04:20:00','05:10:00']    // Período 14
                 ];
                 
                 // Debug: mostrar cuántos detalles hay
@@ -200,7 +213,9 @@ if ($id_seccion > 0) {
                                 <i class="fas fa-file-pdf"></i> Exportar PDF
                             </a>
                             <?php if(($horario['estado']??'BORRADOR')!=='PUBLICADO'): ?>
-                                <a class="btn btn-success btn-sm" href="aprobar_publicar.php?id_horario=<?=$horario['id_horario']?>" onclick="return confirm('¿Aprobar y publicar este horario?');">Aprobar y Publicar</a>
+                                <button type="button" class="btn btn-success btn-sm" id="btnAprobarPublicar" data-id-horario="<?=$horario['id_horario']?>">
+                                    <i class="fas fa-check-circle"></i> Aprobar y Publicar
+                                </button>
                             <?php endif; ?>
                             <button type="button" class="btn btn-danger btn-sm" id="btnEliminarHorario" data-id-horario="<?=$horario['id_horario']?>" data-grado="<?=$horario['id_grado']?>" data-seccion="<?=$horario['id_seccion']?>">
                                 <i class="fas fa-trash"></i> Eliminar Horario
@@ -1073,13 +1088,22 @@ $(document).ready(function() {
                             // Inferir hora_fin si es inválida (00:00:00 o NULL)
                             let horaFin = c.hora_fin ? c.hora_fin.substring(0, 5) : '';
                             if (!horaFin || horaFin === '00:00') {
+                                // Mapa actualizado según la parrilla de la imagen (07:00 AM - 05:10 PM)
                                 const mapaHoras = {
-                                    '07:50': '08:30',
-                                    '08:30': '09:10',
-                                    '09:10': '09:50',
-                                    '10:10': '10:50',
-                                    '10:50': '11:30',
-                                    '11:30': '12:10'
+                                    '07:00': '07:40',
+                                    '07:40': '08:20',
+                                    '08:20': '09:00',
+                                    '09:00': '09:40',
+                                    '09:50': '10:30',
+                                    '10:30': '11:10',
+                                    '11:10': '11:50',
+                                    '11:50': '12:30',
+                                    '01:00': '01:40',
+                                    '01:40': '02:20',
+                                    '02:30': '03:10',
+                                    '03:10': '03:50',
+                                    '03:50': '04:30',
+                                    '04:20': '05:10'
                                 };
                                 horaFin = mapaHoras[horaInicio] || horaFin;
                             }
@@ -1332,6 +1356,28 @@ $(document).ready(function() {
                 
                 // Redirigir a la página de eliminación
                 window.location.href = 'eliminar_horario.php?id_horario=' + idHorario;
+            }
+        });
+    });
+    
+    // Manejar aprobación y publicación de horario
+    $('#btnAprobarPublicar').on('click', function() {
+        const idHorario = $(this).data('id-horario');
+        
+        Swal.fire({
+            icon: 'question',
+            title: '¿Aprobar y publicar este horario?',
+            text: 'Esta acción cambiará el estado del horario a PUBLICADO.',
+            showCancelButton: true,
+            confirmButtonText: 'Aceptar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Redirigir a la página de aprobación
+                window.location.href = 'aprobar_publicar.php?id_horario=' + idHorario;
             }
         });
     });

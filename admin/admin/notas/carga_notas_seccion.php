@@ -69,7 +69,7 @@ if (!empty($id_profesor) && $id_profesor > 0) {
     ";
     $query_secciones = $pdo->prepare($sql_secciones);
     $query_secciones->bindParam(':id_profesor', $id_profesor);
-    $query_secciones->bindParam(':id_gestion', $gestion_activa['id_gestion']);
+$query_secciones->bindParam(':id_gestion', $gestion_activa['id_gestion']);
     $query_secciones->execute();
     $secciones_asignadas = $query_secciones->fetchAll(PDO::FETCH_ASSOC);
 } else {
@@ -97,18 +97,34 @@ $query_lapsos->bindParam(':id_gestion', $gestion_activa['id_gestion']);
 $query_lapsos->execute();
 $lapsos = $query_lapsos->fetchAll(PDO::FETCH_ASSOC);
 
-// 🔹 Preparación para detectar "tercer lapso" por posición
-$lapsos_ids_ordered = array_column($lapsos, 'id_lapso'); // mantiene el orden por fecha_inicio
-$lapso_pos = null;
-if (!empty($lapsos_ids_ordered) && isset($_GET['lapso'])) {
-    $lapso_pos = array_search(intval($_GET['lapso']), $lapsos_ids_ordered);
-}
-$es_tercer_lapso = ($lapso_pos !== false && $lapso_pos === 2); // índice 2 => 3er lapso en orden
-
 // 🔹 Variables para filtros
 $id_seccion_filtro = $_GET['seccion'] ?? null;
 $id_materia_filtro = $_GET['materia'] ?? null;
 $id_lapso_filtro   = $_GET['lapso'] ?? null;
+
+// 🔹 IMPORTANTE: Si se cambió de materia, resetear el lapso seleccionado
+$materia_anterior = $_SESSION['ultima_materia_seleccionada'] ?? null;
+$seccion_anterior = $_SESSION['ultima_seccion_seleccionada'] ?? null;
+
+// Guardar la materia y sección actual para la próxima comparación
+$_SESSION['ultima_materia_seleccionada'] = $id_materia_filtro;
+$_SESSION['ultima_seccion_seleccionada'] = $id_seccion_filtro;
+
+// Resetear lapso si cambió la materia o la sección
+if (($id_materia_filtro && $materia_anterior && $id_materia_filtro != $materia_anterior) ||
+    ($id_seccion_filtro && $seccion_anterior && $id_seccion_filtro != $seccion_anterior)) {
+    $id_lapso_filtro = null;
+    // También limpiar del GET para que no se muestre en la URL
+    unset($_GET['lapso']);
+}
+
+// 🔹 Preparación para detectar "tercer lapso" por posición
+$lapsos_ids_ordered = array_column($lapsos, 'id_lapso'); // mantiene el orden por fecha_inicio
+$lapso_pos = null;
+if (!empty($lapsos_ids_ordered) && isset($id_lapso_filtro)) {
+    $lapso_pos = array_search(intval($id_lapso_filtro), $lapsos_ids_ordered);
+}
+$es_tercer_lapso = ($lapso_pos !== false && $lapso_pos === 2); // índice 2 => 3er lapso en orden
 
 // 🔹 Obtener estudiantes inscritos en la sección (se usará para comprobar completitud de lapso)
 $estudiantes = [];
@@ -1377,4 +1393,4 @@ function confirmarGuardado() {
         }
     });
 }
-</script> 
+</script>

@@ -8,14 +8,13 @@ include('../../layout/mensajes.php');
 $id_seccion = $_GET['seccion'] ?? null;
 $id_materia = $_GET['materia'] ?? null;
 $id_lapso   = $_GET['lapso'] ?? null;
-$tipo       = $_GET['tipo'] ?? null; 
 
 if (!$id_seccion || !$id_materia || !$id_lapso) {
     echo "<script>alert('Datos incompletos.'); window.location.href='carga_notas_seccion.php';</script>";
     exit;
 }
 
-// ==== Obtener gestión activa (para mostrarla en la vista y usarla en mensajes) ====
+// ==== Obtener gestión activa ====
 $sql_gestion = "SELECT id_gestion, CONCAT('Periodo ', DATE_FORMAT(desde, '%Y'), ' - ', DATE_FORMAT(hasta, '%Y')) AS nombre_gestion FROM gestiones WHERE estado = 1 LIMIT 1";
 $stmt_g = $pdo->prepare($sql_gestion);
 $stmt_g->execute();
@@ -29,117 +28,114 @@ $stmt_m->execute([':id_materia' => $id_materia]);
 $materia_info = $stmt_m->fetch(PDO::FETCH_ASSOC);
 $nombre_materia = $materia_info['nombre_materia'] ?? 'Materia Desconocida';
 
-// ==== Determinar tipo de proceso ====
-if (!$tipo) {
-    $sql_lapso = "SELECT nombre_lapso FROM lapsos WHERE id_lapso = :id_lapso";
-    $stmt_lapso = $pdo->prepare($sql_lapso);
-    $stmt_lapso->execute([':id_lapso' => $id_lapso]);
-    $lapso_info = $stmt_lapso->fetch(PDO::FETCH_ASSOC);
-    $nombre_lapso = $lapso_info['nombre_lapso'] ?? '';
+// ==== Obtener información del año y sección ====
+$sql_seccion = "SELECT s.nombre_seccion, g.grado, g.nivel 
+                FROM secciones s 
+                INNER JOIN grados g ON s.id_grado = g.id_grado 
+                WHERE s.id_seccion = :id_seccion";
+$stmt_s = $pdo->prepare($sql_seccion);
+$stmt_s->execute([':id_seccion' => $id_seccion]);
+$seccion_info = $stmt_s->fetch(PDO::FETCH_ASSOC);
 
-    if (stripos($nombre_lapso, 'Tercer Lapso') !== false) {
-        $tipo = 'revision';
-        $max_intentos = 2;
-    } else {
-        $tipo = 'pendiente';
-        $max_intentos = 4;
-    }
-} else {
-    $max_intentos = ($tipo === 'revision') ? 2 : 4;
+$nombre_seccion = $seccion_info['nombre_seccion'] ?? 'Sección Desconocida';
+$grado = $seccion_info['grado'] ?? '';
+$nivel = $seccion_info['nivel'] ?? '';
+
+// Formatear el grado para mostrar solo el número si es necesario
+$grado_display = $grado;
+// Si el grado contiene "AÑO", extraer solo el texto antes de "AÑO"
+if (strpos($grado, 'AÑO') !== false) {
+    $grado_display = trim(str_replace('AÑO', '', $grado));
 }
 
-// ==== Consultar estudiantes según etapa ====
-if ($tipo === 'revision') {
-    $sql_estudiantes = "
-        SELECT 
-            e.id_estudiante, 
-            e.nombres, 
-            e.apellidos, 
-            (
-                SELECT SUM(n_sum.calificacion) 
-                FROM notas_estudiantes n_sum 
-                WHERE n_sum.id_estudiante = e.id_estudiante 
-                AND n_sum.id_materia = :id_materia
-            ) AS suma_lapsos,
-            COALESCE(
-                (SELECT r.calificacion FROM recuperaciones r 
-                 WHERE r.id_estudiante = e.id_estudiante 
-                 AND r.id_materia = :id_materia 
-                 AND r.id_seccion = :id_seccion 
-                 AND r.tipo = 'revision'
-                 ORDER BY r.intento DESC LIMIT 1
-                 ), 0 
-            ) AS nota_actual,
-            COALESCE(
-                (SELECT MAX(r.intento) FROM recuperaciones r 
-                 WHERE r.id_estudiante = e.id_estudiante 
-                 AND r.id_materia = :id_materia 
-                 AND r.id_seccion = :id_seccion 
-                 AND r.tipo = 'revision'), 0
-            ) AS intento_actual
-        FROM inscripciones i
-        INNER JOIN estudiantes e ON e.id_estudiante = i.id_estudiante
-        WHERE i.id_seccion = :id_seccion
-          AND i.estado = 'activo'
-          AND (
-              SELECT SUM(n_sum.calificacion) 
-              FROM notas_estudiantes n_sum 
-              WHERE n_sum.id_estudiante = e.id_estudiante 
-              AND n_sum.id_materia = :id_materia
-          ) < 30
-          AND (
-              COALESCE(
-                  (SELECT r.calificacion FROM recuperaciones r 
-                   WHERE r.id_estudiante = e.id_estudiante 
-                   AND r.id_materia = :id_materia 
-                   AND r.id_seccion = :id_seccion 
-                   AND r.tipo = 'revision'
-                   ORDER BY r.intento DESC LIMIT 1
-                   ), 0 
-              ) < 10
-            )
-          AND (
-              (SELECT COUNT(*) FROM recuperaciones r 
+// ==== Verificar que sea Tercer Lapso ====
+$sql_lapso = "SELECT nombre_lapso FROM lapsos WHERE id_lapso = :id_lapso";
+$stmt_lapso = $pdo->prepare($sql_lapso);
+$stmt_lapso->execute([':id_lapso' => $id_lapso]);
+$lapso_info = $stmt_lapso->fetch(PDO::FETCH_ASSOC);
+$nombre_lapso = $lapso_info['nombre_lapso'] ?? '';
+
+if (stripos($nombre_lapso, 'Tercer Lapso') === false) {
+    echo "<script>alert('La revisión solo aplica para el Tercer Lapso.'); window.location.href='carga_notas_seccion.php?seccion=$id_seccion&materia=$id_materia&lapso=$id_lapso';</script>";
+    exit;
+}
+
+$tipo = 'revision';
+$max_intentos = 2;
+
+// ==== Consultar estudiantes para revisión ====
+$sql_estudiantes = "
+    SELECT 
+        e.id_estudiante, 
+        e.nombres, 
+        e.apellidos, 
+        (
+            SELECT SUM(n_sum.calificacion) 
+            FROM notas_estudiantes n_sum 
+            WHERE n_sum.id_estudiante = e.id_estudiante 
+            AND n_sum.id_materia = :id_materia
+        ) AS suma_lapsos,
+        COALESCE(
+            (SELECT r.calificacion FROM recuperaciones r 
+             WHERE r.id_estudiante = e.id_estudiante 
+             AND r.id_materia = :id_materia 
+             AND r.id_seccion = :id_seccion 
+             AND r.tipo = 'revision'
+             ORDER BY r.intento DESC LIMIT 1
+             ), 0 
+        ) AS nota_actual,
+        COALESCE(
+            (SELECT MAX(r.intento) FROM recuperaciones r 
+             WHERE r.id_estudiante = e.id_estudiante 
+             AND r.id_materia = :id_materia 
+             AND r.id_seccion = :id_seccion 
+             AND r.tipo = 'revision'), 0
+        ) AS intento_actual
+    FROM inscripciones i
+    INNER JOIN estudiantes e ON e.id_estudiante = i.id_estudiante
+    WHERE i.id_seccion = :id_seccion
+      AND i.estado = 'activo'
+      AND (
+          SELECT SUM(n_sum.calificacion) 
+          FROM notas_estudiantes n_sum 
+          WHERE n_sum.id_estudiante = e.id_estudiante 
+          AND n_sum.id_materia = :id_materia
+      ) < 30
+      AND (
+          COALESCE(
+              (SELECT r.calificacion FROM recuperaciones r 
                WHERE r.id_estudiante = e.id_estudiante 
                AND r.id_materia = :id_materia 
                AND r.id_seccion = :id_seccion 
-               AND r.tipo = 'revision') < 2
-            )
-        GROUP BY e.id_estudiante 
-        ORDER BY e.apellidos, e.nombres
-    ";
-} else {
-    $sql_estudiantes = "
-        SELECT 
-            mp.id_estudiante, 
-            e.nombres, 
-            e.apellidos,
-            COALESCE(MAX(CASE WHEN r.tipo = 'pendiente' THEN r.calificacion END), 0) AS nota_actual,
-            COALESCE(MAX(CASE WHEN r.tipo = 'pendiente' THEN r.intento END), 0) AS intento_actual
-        FROM materias_pendientes mp
-        INNER JOIN estudiantes e ON mp.id_estudiante = e.id_estudiante
-        LEFT JOIN recuperaciones r 
-            ON r.id_estudiante = mp.id_estudiante 
-            AND r.id_materia = mp.id_materia
-            AND r.tipo = 'pendiente'
-        WHERE mp.id_materia = :id_materia AND mp.id_seccion = :id_seccion
-        GROUP BY mp.id_estudiante, e.nombres, e.apellidos
-        HAVING intento_actual < 4 
-        ORDER BY e.apellidos, e.nombres
-    ";
-}
+               AND r.tipo = 'revision'
+               ORDER BY r.intento DESC LIMIT 1
+               ), 0 
+          ) < 10
+        )
+      AND (
+          (SELECT COUNT(*) FROM recuperaciones r 
+           WHERE r.id_estudiante = e.id_estudiante 
+           AND r.id_materia = :id_materia 
+           AND r.id_seccion = :id_seccion 
+           AND r.tipo = 'revision') < 2
+        )
+    GROUP BY e.id_estudiante 
+    ORDER BY e.apellidos, e.nombres
+";
 
 $stmt = $pdo->prepare($sql_estudiantes);
 $stmt->execute([':id_materia' => $id_materia, ':id_seccion' => $id_seccion]);
 $estudiantes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// ==== HISTORIAL: Agrupar por Estudiante ====
+// ==== HISTORIAL: Agrupar por Estudiante (solo revisión) ====
 $sql_historial = "
     SELECT r.*, e.nombres, e.apellidos, m.nombre_materia
     FROM recuperaciones r
     INNER JOIN estudiantes e ON e.id_estudiante = r.id_estudiante
     INNER JOIN materias m ON m.id_materia = r.id_materia
-    WHERE r.id_materia = :id_materia AND r.id_seccion = :id_seccion
+    WHERE r.id_materia = :id_materia 
+      AND r.id_seccion = :id_seccion
+      AND r.tipo = 'revision'
     ORDER BY e.apellidos, e.nombres, r.fecha_registro DESC
 ";
 $stmt_h = $pdo->prepare($sql_historial);
@@ -159,7 +155,6 @@ foreach ($historial_raw as $registro) {
             'registros' => []
         ];
     }
-    // Añadimos el registro al array del estudiante
     $historial_agrupado[$id_estudiante]['registros'][] = $registro;
 }
 ?>
@@ -181,23 +176,11 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
                     <div class="col-sm-6">
                         <h3 class="m-0 text-primary">
                             <i class="fas fa-book-open"></i>
-                            <?= $tipo == 'revision' ? 'Gestión de Revisión' : 'Gestión de Materias Pendientes' ?>
+                            Gestión de Revisión (Tercer Lapso)
                         </h3>
                         <h6 class="text-muted">Materia: <strong><?= htmlspecialchars($nombre_materia) ?></strong></h6>
-                        <!-- Mostrar gestión activa -->
+                        <h6 class="text-muted">Año/Sección: <strong><?= htmlspecialchars("$nivel - $grado_display - Sección $nombre_seccion") ?></strong></h6>
                         <h6 class="text-muted">Gestión activa: <strong><?= htmlspecialchars($gestion_activa) ?></strong></h6>
-
-                        <?php if ($tipo === 'revision'): ?>
-                            <a href="recuperaciones.php?seccion=<?= $id_seccion ?>&materia=<?= $id_materia ?>&lapso=<?= $id_lapso ?>&tipo=pendiente" 
-                               class="btn btn-warning btn-sm mt-2">
-                               <i class="fas fa-arrow-right"></i> Ir a Materias Pendientes
-                            </a>
-                        <?php elseif ($tipo === 'pendiente'): ?>
-                            <a href="recuperaciones.php?seccion=<?= $id_seccion ?>&materia=<?= $id_materia ?>&lapso=<?= $id_lapso ?>&tipo=revision" 
-                               class="btn btn-secondary btn-sm mt-2">
-                               <i class="fas fa-arrow-left"></i> Volver a Revisión
-                            </a>
-                        <?php endif; ?>
                     </div>
                     <div class="col-sm-6 text-right">
                         <a href="carga_notas_seccion.php?seccion=<?= $id_seccion ?>&materia=<?= $id_materia ?>&lapso=<?= $id_lapso ?>" 
@@ -209,7 +192,7 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
             <div class="card card-primary card-outline shadow-sm">
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0">
-                        <i class="fas fa-edit"></i> Registrar Notas de <?= $tipo == 'revision' ? 'Revisión (2 intentos)' : 'Materias Pendientes (4 intentos)' ?>
+                        <i class="fas fa-edit"></i> Registrar Notas de Revisión (2 intentos)
                     </h5>
                 </div>
                 <div class="card-body">
@@ -233,18 +216,17 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
                                 </thead>
                                 <tbody>
                                     <?php if (empty($estudiantes)): ?>
-                                        <tr><td colspan="6">✅ No hay estudiantes pendientes.</td></tr>
+                                        <tr><td colspan="6">✅ No hay estudiantes pendientes de revisión.</td></tr>
                                     <?php else: $n=1; foreach ($estudiantes as $e): ?>
                                         <?php 
                                             $prox_intento = $e['intento_actual'] + 1;
-                                            $default_observ = ($e['intento_actual'] >= 4 && $tipo === 'pendiente') ? 'Repite' : '';
                                         ?>
                                         <tr>
                                             <td><?= $n++ ?></td>
                                             <td class="text-left"><?= htmlspecialchars($e['nombres'].' '.$e['apellidos']) ?></td>
                                             <td>
                                                 <?php 
-                                                    if ($tipo == 'revision' && $e['intento_actual'] == 0) {
+                                                    if ($e['intento_actual'] == 0) {
                                                         // Calcular promedio y redondear
                                                         $promedio = ($e['suma_lapsos'] ?? 0) / 3;
                                                         $redondeado = round($promedio, 0, PHP_ROUND_HALF_UP);
@@ -261,7 +243,12 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
                                                     }
                                                 ?>
                                             </td>
-                                            <td><?= $prox_intento ?>°</td>
+                                            <td>
+                                                <?= $prox_intento ?>°
+                                                <?php if ($prox_intento == 2): ?>
+                                                    <span class="badge badge-danger ml-1">ÚLTIMO</span>
+                                                <?php endif; ?>
+                                            </td>
                                             <td>
                                                 <input type="number" step="0.1" min="0" max="20" 
                                                     name="nota[<?= $e['id_estudiante'] ?>]" 
@@ -276,7 +263,7 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
                                                 <input type="text" name="observaciones[<?= $e['id_estudiante'] ?>]" 
                                                        class="form-control observacion-recuperacion" 
                                                        placeholder="Observación (obligatoria si registra nota)" 
-                                                       value="<?= htmlspecialchars($default_observ) ?>">
+                                                       value="">
                                             </td>
                                         </tr>
                                     <?php endforeach; endif; ?>
@@ -295,17 +282,18 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
 
             <div class="card card-outline card-info mt-4 shadow-sm">
                 <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-history"></i> Historial Agrupado por Estudiante</h5>
+                    <h5 class="mb-0"><i class="fas fa-history"></i> Historial de Revisiones</h5>
                 </div>
                 <div class="card-body">
                     <?php if (empty($historial_agrupado)): ?>
-                        <div class="alert alert-warning text-center">No hay registros aún.</div>
+                        <div class="alert alert-warning text-center">No hay registros de revisiones aún.</div>
                     <?php else: ?>
                         <div class="table-responsive">
                             <table id="tablaHistorialAgrupado" class="table table-striped table-bordered text-center" style="width:100%">
                                 <thead class="bg-secondary text-white">
                                     <tr>
-                                        <th class="details-control text-center"></th> <th>Estudiante</th>
+                                        <th class="details-control text-center"></th> 
+                                        <th>Estudiante</th>
                                         <th>Materia</th>
                                         <th>Registros</th>
                                         <th>Última Nota</th>
@@ -332,7 +320,7 @@ tr.shown td.details-control i.fa-minus-circle { display: inline; }
                                                 <?= str_pad($nota_redondeada, 2, '0', STR_PAD_LEFT) ?> 
                                                 <span class="badge <?= $estado_clase ?>"><?= $estado_texto ?></span>
                                             </td>
-                                            <td><?= $ultimo_registro['intento'] ?>° (<?= strtoupper($ultimo_registro['tipo']) ?>)</td>
+                                            <td><?= $ultimo_registro['intento'] ?>° (REVISIÓN)</td>
                                             <td><?= date('d/m/Y', strtotime($ultimo_registro['fecha_registro'])) ?></td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -380,7 +368,7 @@ $('#formRecuperacion').on('submit', function(e){
             const tipo = $('input[name="tipo"]').val();
             
             // Verificar si es último intento
-            if ((tipo === 'revision' && intento === 2) || (tipo === 'pendiente' && intento === 4)) {
+            if (intento === 2) { // Último intento de revisión
                 estudiantesUltimoIntento.push({
                     nombre: $(this).data('estudiante'),
                     tipo: tipo,
@@ -443,14 +431,10 @@ $('#formRecuperacion').on('submit', function(e){
         
         mensajeConfirmacion = '<div style="text-align: left;">';
         mensajeConfirmacion += '<div style="background: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107; margin-bottom: 15px;">';
-        mensajeConfirmacion += '<strong><i class="fas fa-exclamation-triangle"></i> ÚLTIMO INTENTO</strong><br>';
+        mensajeConfirmacion += '<strong><i class="fas fa-exclamation-triangle"></i> ÚLTIMO INTENTO DE REVISIÓN</strong><br>';
         
         estudiantesUltimoIntento.forEach((est, index) => {
-            if (est.tipo === 'revision') {
-                mensajeConfirmacion += `<div style="margin-top: 5px;">• <strong>${est.nombre}</strong>: 2° y último intento de revisión. Si reprueba, será movido a Materias Pendientes.</div>`;
-            } else if (est.tipo === 'pendiente') {
-                mensajeConfirmacion += `<div style="margin-top: 5px;">• <strong>${est.nombre}</strong>: 4° y último intento. Si reprueba, será <strong style="color: #d33;">APLAZADO</strong> y repetirá el año escolar.</div>`;
-            }
+            mensajeConfirmacion += `<div style="margin-top: 5px;">• <strong>${est.nombre}</strong>: 2° y último intento de revisión. Si reprueba, será movido a Materias Pendientes.</div>`;
         });
         
         mensajeConfirmacion += '</div>';
@@ -490,9 +474,7 @@ $('#formRecuperacion').on('submit', function(e){
                             `✅ Se guardaron <strong>${totalRegistros}</strong> registros correctamente.`
                         );
                         
-                        // Solo mostrar reprobados si NO hay aplazados (para evitar redundancia)
-                        if (typeof summary.reprobados !== 'undefined' && summary.reprobados > 0 && 
-                            (!summary.aplazados_count || summary.aplazados_count === 0)) {
+                        if (typeof summary.reprobados !== 'undefined' && summary.reprobados > 0) {
                             lines.push(`<strong>${summary.reprobados}</strong> ${formatMensaje(summary.reprobados, 'reprobado', 'reprobados')}`);
                         }
                         
@@ -502,24 +484,6 @@ $('#formRecuperacion').on('submit', function(e){
                         
                         if (typeof summary.movido_a_pendiente_count !== 'undefined' && summary.movido_a_pendiente_count > 0) {
                             lines.push(`<strong>${summary.movido_a_pendiente_count}</strong> ${formatMensaje(summary.movido_a_pendiente_count, 'movido a pendientes', 'movidos a pendientes')}`);
-                        }
-                        
-                        if (typeof summary.aplazados_count !== 'undefined' && summary.aplazados_count > 0) {
-                            // Si hay aplazados, NO mostrar "reprobados" en las líneas para evitar redundancia
-                            lines = lines.filter(line => !line.includes('reprobado'));
-                            lines.push(`<strong>${summary.aplazados_count}</strong> ${formatMensaje(summary.aplazados_count, 'estudiante aplazado', 'estudiantes aplazados')}`);
-                        }
-
-                        // Detalles individuales si hay estudiantes aplazados (en lista compacta)
-                        let detallesAplazados = '';
-                        if (resp.detalles_aplazados && resp.detalles_aplazados.length > 0) {
-                            detallesAplazados = '<hr style="margin: 15px 0; border-color: #ff6b6b;">';
-                            detallesAplazados += '<div style="text-align: left; font-size: 0.9em;">';
-                            detallesAplazados += '<strong style="color: #d33;"><i class="fas fa-exclamation-circle"></i> Detalle de aplazados:</strong><br>';
-                            resp.detalles_aplazados.forEach((detalle, index) => {
-                                detallesAplazados += `<div style="margin-top: 5px;">${detalle}</div>`;
-                            });
-                            detallesAplazados += '</div>';
                         }
 
                         const htmlMsg = `
@@ -532,7 +496,6 @@ $('#formRecuperacion').on('submit', function(e){
                                         ${lines.join(' · ')}
                                     </div>
                                 ` : ''}
-                                ${detallesAplazados}
                                 ${resp.gestion_activa ? `
                                     <div style="margin-top: 15px; font-size: 0.85em; color: #6c757d; padding-top: 10px; border-top: 1px solid #dee2e6;">
                                         <i class="fas fa-calendar-alt"></i> Gestión: ${resp.gestion_activa}
@@ -595,13 +558,12 @@ $('#formRecuperacion').on('submit', function(e){
 function format(d) {
     let html = `
     <div style="margin: 0 10px 10px 10px; border: 1px solid #ddd; border-radius: 5px;">
-        <h6 class="p-2 bg-light text-secondary mb-0">Detalle Completo de Recuperaciones (${d.nombre_completo})</h6>
+        <h6 class="p-2 bg-light text-secondary mb-0">Detalle Completo de Revisiones (${d.nombre_completo})</h6>
         <table class="child-row-table table table-sm table-borderless table-info table-hover">
             <thead class="bg-info text-white">
                 <tr>
                     <th>#</th>
                     <th>Fecha</th>
-                    <th>Tipo</th>
                     <th>Momento</th>
                     <th>Nota</th>
                     <th>Estado</th>
@@ -622,8 +584,7 @@ function format(d) {
             <tr>
                 <td>${index + 1}</td>
                 <td>${new Date(r.fecha_registro).toLocaleDateString('es-ES')}</td>
-                <td><span class="badge badge-secondary">${r.tipo.toUpperCase()}</span></td>
-                <td>${r.intento}°</td>
+                <td>${r.intento}° (REVISIÓN)</td>
                 <td><strong class="${estadoClase}">${notaFormateada}</strong></td>
                 <td><span class="badge ${estado === 'Aprobado' ? 'badge-success' : 'badge-danger'}">${estado}</span></td>
                 <td>${observ}</td>
@@ -662,7 +623,7 @@ $(document).ready(function() {
             { 
                 data: 'registros.0.intento', 
                 render: function(data, type, row) { 
-                    return `${data}° (${row.registros[0].tipo.toUpperCase()})`; 
+                    return `${data}° (REVISIÓN)`; 
                 } 
             },
             { 

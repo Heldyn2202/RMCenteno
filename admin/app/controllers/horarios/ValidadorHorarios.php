@@ -33,21 +33,20 @@ class ValidadorHorarios {
     public function validarHorarioCompleto($id_gestion, $id_grado, $id_seccion, $horario_data, $aula = null, $id_horario_excluir = null) {
         $this->errores = [];
         
-        // 1. VALIDACIONES DE ESTRUCTURA ACADÉMICA
-        $this->validarExistenciaMaterias($horario_data, $id_grado, $id_seccion);
-        $this->validarCoherenciaSeccionGrado($id_seccion, $id_grado, $id_gestion);
-        
-        // 2. VALIDACIONES DE ASIGNACIÓN DE RECURSOS
+        // ÚNICA VALIDACIÓN MANTENIDA: Conflicto de profesores
+        // Un profesor no puede estar asignado en dos lugares diferentes a la misma hora
         $this->validarConflictosDocente($horario_data, $id_gestion, $id_horario_excluir);
-        $this->validarConflictosAula($horario_data, $id_gestion, $aula, $id_horario_excluir);
-        $this->validarDisponibilidadDocente($horario_data);
-        $this->validarCapacidadAula($id_seccion, $aula);
         
-        // 3. VALIDACIONES DE FLUJO Y TIEMPO
-        $this->validarRangoHorario($horario_data);
-        $this->validarIntervalosClase($horario_data);
-        $this->validarCargaHorariaMaterias($horario_data, $id_grado);
-        $this->validarHorarioCompletoPorMaterias($horario_data, $id_grado);
+        // Las siguientes validaciones han sido ELIMINADAS según solicitud del usuario:
+        // - Validación de existencia de materias
+        // - Validación de coherencia sección/grado
+        // - Validación de conflictos de aula
+        // - Validación de disponibilidad del docente
+        // - Validación de capacidad del aula
+        // - Validación de rango horario
+        // - Validación de solapamiento de intervalos (validarIntervalosClase)
+        // - Validación de carga horaria
+        // - Validación de horario completo por materias
         
         return empty($this->errores);
     }

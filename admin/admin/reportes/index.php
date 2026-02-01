@@ -28,7 +28,7 @@ include ('../../admin/layout/parte1.php');
             <br>
             <div class="row">
 
-                <div class="col-md-6 col-sm-6 col-12">
+                <div class="col-md-4 col-sm-6 col-12">
                     <div class="info-box">
                         <span class="info-box-icon bg-info"><i class="bi bi-download"></i></span>
                         <div class="info-box-content">
@@ -38,12 +38,22 @@ include ('../../admin/layout/parte1.php');
                     </div>
                 </div>
 
-                <div class="col-md-6 col-sm-6 col-12">
+                <div class="col-md-4 col-sm-6 col-12">
                     <div class="info-box">
                         <span class="info-box-icon bg-info"><i class="bi bi-download"></i></span>
                         <div class="info-box-content">
                             <span class="info-box-text"><b> Constancias de incripción</b></span>
                             <a href="Lista_de_inscripcion.php" class="btn btn-info btn-sm">Ver</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 col-sm-6 col-12">
+                    <div class="info-box">
+                        <span class="info-box-icon bg-info"><i class="bi bi-download"></i></span>
+                        <div class="info-box-content">
+                            <span class="info-box-text"><b>Materias Pendientes</b></span>
+                            <a href="http://localhost/heldyn/centeno/admin/admin/notas/reporte_pendientes_form.php" class="btn btn-info btn-sm">Ver</a>
                         </div>
                     </div>
                 </div>
@@ -62,4 +72,3 @@ include ('../../admin/layout/parte2.php');
 include ('../../layout/mensajes.php');
 
 ?>
-

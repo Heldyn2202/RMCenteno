@@ -3,9 +3,16 @@ include ('../../app/config.php');
 include ('../../admin/layout/parte1.php');
 include ('../../app/controllers/roles/listado_de_roles.php');
 
+// =========================================================
+// MODIFICACIÓN: CALCULAR LAS FECHAS MÁXIMA Y MÍNIMA PARA LA RESTRICCIÓN DE EDAD
+// Calcula la fecha de hace 18 años. Esta será la fecha MÁXIMA que se puede seleccionar.
+$fecha_maxima = date('Y-m-d', strtotime('-18 years')); 
+// Calcula la fecha de hace 80 años. Esta será la fecha MÍNIMA que se puede seleccionar.
+$fecha_minima = date('Y-m-d', strtotime('-80 years')); 
+// =========================================================
+
 ?>
 
-<!-- Content Wrapper. Contains page content -->
 <div class="content-wrapper">
     <br>
     <div class="content">
@@ -15,17 +22,13 @@ include ('../../app/controllers/roles/listado_de_roles.php');
         <div class="row mb-2">
           <div class="col-sm-6">
             <h1 class="m-0">Registrar personal administrativo</h1>
-          </div><!-- /.col -->
-            <div class="col-sm-6">
+          </div><div class="col-sm-6">
             <ol class="breadcrumb float-sm-right">
               <li class="breadcrumb-item"><a href="#">Dashboard</a></li>
               <li class="breadcrumb-item"><a href="<?=APP_URL;?>/admin/administrativos">Administrativo</a></li>
               <li class="breadcrumb-item active">Registrar personal administrativo</li>
             </ol>
-          </div><!-- /.col -->
-        </div><!-- /.row -->
-      </div><!-- /.container-fluid -->
-    </div>
+          </div></div></div></div>
             <br>
             <div class="row">
 
@@ -75,7 +78,12 @@ include ('../../app/controllers/roles/listado_de_roles.php');
                                     <div class="col-md-3">
                                         <div class="form-group">
                                             <label for="">Fecha de nacimiento</label>
-                                            <input type="date" name="fecha_nacimiento" class="form-control" required>
+                                            <input type="date" name="fecha_nacimiento" class="form-control" 
+                                                   min="<?=$fecha_minima;?>" 
+                                                   max="<?=$fecha_maxima;?>" 
+                                                   required>
+                                            <!-- Mensaje informativo para el usuario -->
+                                            <small class="text-muted">Rango permitido: entre 18 y 80 años</small>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -115,13 +123,8 @@ include ('../../app/controllers/roles/listado_de_roles.php');
                     </div>
                 </div>
             </div>
-            <!-- /.row -->
-        </div><!-- /.container-fluid -->
+            </div></div>
     </div>
-    <!-- /.content -->
-</div>
-<!-- /.content-wrapper -->
-
 <?php
 
 include ('../../admin/layout/parte2.php');

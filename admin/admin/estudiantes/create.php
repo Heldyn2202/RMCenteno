@@ -12,6 +12,10 @@ $stmt_representante = $pdo->prepare($sql_representante);
 $stmt_representante->bindParam(':id_representante', $id_representante);  
 $stmt_representante->execute();  
 $representante = $stmt_representante->fetch(PDO::FETCH_ASSOC);   
+
+// Calcular fechas límite para edad (11 a 18 años)
+$fecha_minima = date('Y-m-d', strtotime('-18 years')); // Máximo 18 años
+$fecha_maxima = date('Y-m-d', strtotime('-11 years')); // Mínimo 11 años
 ?>  
 
 <!-- Content Wrapper. Contains page content -->  
@@ -124,7 +128,11 @@ $representante = $stmt_representante->fetch(PDO::FETCH_ASSOC);
                                 <div class="col-md-4">
                                     <div class="form-group">
                                         <label for="fecha_nacimiento" class="control-label">Fecha de Nacimiento *</label>
-                                        <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" class="form-control" required max="<?= date('Y-m-d', strtotime('-3 years')) ?>">
+                                        <!-- CAMBIO: Rango de edad entre 11 y 18 años -->
+                                        <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" class="form-control" required 
+                                               min="<?= $fecha_minima ?>" 
+                                               max="<?= $fecha_maxima ?>">
+                                        <small class="form-text text-muted">El estudiante debe tener entre 11 y 18 años de edad.</small>
                                     </div>
                                 </div>
                                 
@@ -295,48 +303,49 @@ $representante = $stmt_representante->fetch(PDO::FETCH_ASSOC);
     }  
 
     async function verificarCedulaEscolar() {
-    const posicionHijo = document.getElementById('posicion_hijo').value.trim();
-    const tipoCedula = document.getElementById('tipo_cedula').value;
-    const cedulaRepresentante = '<?= $representante['cedula'] ?>'; // Cédula del representante
+        const posicionHijo = document.getElementById('posicion_hijo').value.trim();
+        const tipoCedula = document.getElementById('tipo_cedula').value;
+        const cedulaRepresentante = '<?= $representante['cedula'] ?>'; // Cédula del representante
 
-    if (posicionHijo === '') {
-        return; // No hacer nada si la posición está vacía
-    }
+        if (posicionHijo === '') {
+            return; // No hacer nada si la posición está vacía
+        }
 
-    // Generar la cédula escolar basada en la posición del hijo
-    let cedulaEscolar = (tipoCedula === 'V' ? 'V' : 'E') + posicionHijo + 'XX' + cedulaRepresentante; // 'XX' se reemplazará con el año de nacimiento
+        // Generar la cédula escolar basada en la posición del hijo
+        let cedulaEscolar = (tipoCedula === 'V' ? 'V' : 'E') + posicionHijo + 'XX' + cedulaRepresentante; // 'XX' se reemplazará con el año de nacimiento
 
-    try {
-        const response = await fetch(`../../app/controllers/estudiantes/verificar_cedula_escolar.php`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `cedula_escolar=${encodeURIComponent(cedulaEscolar)}`
-        });
+        try {
+            const response = await fetch(`../../app/controllers/estudiantes/verificar_cedula_escolar.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `cedula_escolar=${encodeURIComponent(cedulaEscolar)}`
+            });
 
-        const data = await response.text();
+            const data = await response.text();
 
-        if (data.trim() === 'existe') {
+            if (data.trim() === 'existe') {
+                await Swal.fire({
+                    title: 'Cédula Escolar ya registrada',
+                    text: 'La cédula escolar para esta posición de hijo ya está registrada.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                document.getElementById('posicion_hijo').value = ''; // Limpiar el campo si ya está registrada
+                return false; // Evitar el envío del formulario
+            }
+        } catch (error) {
+            console.error('Error:', error);
             await Swal.fire({
-                title: 'Cédula Escolar ya registrada',
-                text: 'La cédula escolar para esta posición de hijo ya está registrada.',
+                title: 'Error',
+                text: 'Ocurrió un error al verificar la cédula escolar.',
                 icon: 'error',
                 confirmButtonText: 'Aceptar'
             });
-            document.getElementById('posicion_hijo').value = ''; // Limpiar el campo si ya está registrada
-            return false; // Evitar el envío del formulario
         }
-    } catch (error) {
-        console.error('Error:', error);
-        await Swal.fire({
-            title: 'Error',
-            text: 'Ocurrió un error al verificar la cédula escolar.',
-            icon: 'error',
-            confirmButtonText: 'Aceptar'
-        });
     }
-}
+
     function toggleCedulaField(show) {  
         const cedulaField = document.getElementById('cedula_field');  
         cedulaField.style.display = show ? 'block' : 'none';  
@@ -387,6 +396,33 @@ $representante = $stmt_representante->fetch(PDO::FETCH_ASSOC);
             }  
         }  
 
+        // VALIDACIÓN MEJORADA: Edad entre 11 y 18 años
+        const fechaNacimiento = document.getElementById('fecha_nacimiento').value;
+        if (fechaNacimiento) {
+            const fechaNac = new Date(fechaNacimiento);
+            const hoy = new Date();
+            
+            // Calcular edad exacta
+            let edad = hoy.getFullYear() - fechaNac.getFullYear();
+            const mes = hoy.getMonth() - fechaNac.getMonth();
+            
+            if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNac.getDate())) {
+                edad--;
+            }
+            
+            if (edad < 11) {
+                alert("El estudiante debe tener al menos 11 años de edad.");
+                document.getElementById('fecha_nacimiento').focus();
+                return false;
+            }
+            
+            if (edad > 18) {
+                alert("El estudiante no puede tener más de 18 años de edad.");
+                document.getElementById('fecha_nacimiento').focus();
+                return false;
+            }
+        }
+
         return true;  
     }  
 
@@ -395,7 +431,41 @@ $representante = $stmt_representante->fetch(PDO::FETCH_ASSOC);
         generarCedulaEscolar();
         verificarCedulaEscolar(); // Verificar cédula escolar al cambiar la posición
     });  
-    document.getElementById('fecha_nacimiento').addEventListener('change', generarCedulaEscolar);  
+
+    // Agregar evento para validar edad inmediatamente al cambiar la fecha de nacimiento
+    document.getElementById('fecha_nacimiento').addEventListener('change', function() {
+        generarCedulaEscolar();
+        
+        // Validar edad inmediatamente
+        const fechaNacimiento = this.value;
+        if (fechaNacimiento) {
+            const fechaNac = new Date(fechaNacimiento);
+            const hoy = new Date();
+            
+            let edad = hoy.getFullYear() - fechaNac.getFullYear();
+            const mes = hoy.getMonth() - fechaNac.getMonth();
+            
+            if (mes < 0 || (mes === 0 && hoy.getDate() < fechaNac.getDate())) {
+                edad--;
+            }
+            
+            if (edad < 11) {
+                Swal.fire({
+                    title: 'Edad no válida',
+                    text: 'El estudiante debe tener al menos 11 años de edad.',
+                    icon: 'warning',
+                    confirmButtonText: 'Aceptar'
+                });
+            } else if (edad > 18) {
+                Swal.fire({
+                    title: 'Edad no válida',
+                    text: 'El estudiante no puede tener más de 18 años de edad.',
+                    icon: 'warning',
+                    confirmButtonText: 'Aceptar'
+                });
+            }
+        }
+    });
 
     // Agregar evento para verificar cédula cuando el campo pierde el foco  
     document.addEventListener('DOMContentLoaded', function() {  

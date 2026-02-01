@@ -142,8 +142,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 continue;
             }
 
-            // Redondear al entero más cercano (18.5 => 19, 18.4 => 18)
-            $calificacion = (int) round($calificacion_val, 0, PHP_ROUND_HALF_UP);
+            // CORRECCIÓN: Guardar con 2 decimales pero redondear para mostrar
+            // Guardar con 2 decimales en la base de datos
+            $calificacion = round($calificacion_val, 2);
+
+            // Redondear al entero más cercano solo para comparaciones y presentación
+            $calificacion_redondeada = (int) round($calificacion_val, 0, PHP_ROUND_HALF_UP);
 
             $observacion_nueva = trim($observaciones[$id_estudiante] ?? '');
 
@@ -156,24 +160,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $nota_existente = $stmt_check->fetch(PDO::FETCH_ASSOC);
 
             if ($nota_existente) {
-                // NOTA EXISTENTE - Verificar si hay cambios reales (comparando valores redondeados)
+                // NOTA EXISTENTE - Verificar si hay cambios reales
                 $observacion_anterior = $nota_existente['observaciones'] ?? '';
                 $nota_anterior_raw = floatval($nota_existente['calificacion']);
-                $nota_anterior = (int) round($nota_anterior_raw, 0, PHP_ROUND_HALF_UP);
+                $nota_anterior_redondeada = (int) round($nota_anterior_raw, 0, PHP_ROUND_HALF_UP);
 
-                $hay_cambio_nota = ($nota_anterior !== $calificacion);
+                // Comparar usando valores redondeados para la lógica de negocio
+                $hay_cambio_nota = ($nota_anterior_redondeada !== $calificacion_redondeada);
                 $hay_cambio_obs = ($observacion_anterior !== $observacion_nueva);
 
                 if ($hay_cambio_nota || $hay_cambio_obs) {
-                    // Insertar en historial
+                    // Insertar en historial (guardar valores redondeados en historial)
                     if ($has_id_nota) {
                         $params_hist = [
                             ':id_nota' => $nota_existente['id_nota'],
                             ':id_estudiante' => $id_estudiante,
                             ':id_materia' => $id_materia,
                             ':id_lapso' => $id_lapso,
-                            ':calificacion_anterior' => $nota_anterior,
-                            ':calificacion_nueva' => $calificacion,
+                            ':calificacion_anterior' => $nota_anterior_redondeada,
+                            ':calificacion_nueva' => $calificacion_redondeada,
                             ':obs_anterior' => $observacion_anterior,
                             ':obs_nueva' => $observacion_nueva,
                             ':tipo_cambio' => 'ACTUALIZACION',
@@ -184,8 +189,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             ':id_estudiante' => $id_estudiante,
                             ':id_materia' => $id_materia,
                             ':id_lapso' => $id_lapso,
-                            ':calificacion_anterior' => $nota_anterior,
-                            ':calificacion_nueva' => $calificacion,
+                            ':calificacion_anterior' => $nota_anterior_redondeada,
+                            ':calificacion_nueva' => $calificacion_redondeada,
                             ':obs_anterior' => $observacion_anterior,
                             ':obs_nueva' => $observacion_nueva,
                             ':tipo_cambio' => 'ACTUALIZACION',
@@ -194,7 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     }
                     $stmt_hist->execute($params_hist);
 
-                    // Actualizar nota principal (guardar entero)
+                    // Actualizar nota principal (guardar con 2 decimales)
                     $stmt_update->execute([
                         ':calificacion' => $calificacion,
                         ':observaciones' => $observacion_nueva,
@@ -207,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $sin_cambios++;
                 }
             } else {
-                // NUEVA NOTA: insertar nota (guardar entero) y luego historial de CREACION
+                // NUEVA NOTA: insertar nota (guardar con 2 decimales) y luego historial de CREACION
                 $stmt_insert->execute([
                     ':id_estudiante' => $id_estudiante,
                     ':id_materia' => $id_materia,
@@ -225,7 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         ':id_materia' => $id_materia,
                         ':id_lapso' => $id_lapso,
                         ':calificacion_anterior' => null,
-                        ':calificacion_nueva' => $calificacion,
+                        ':calificacion_nueva' => $calificacion_redondeada,
                         ':obs_anterior' => null,
                         ':obs_nueva' => $observacion_nueva,
                         ':tipo_cambio' => 'CREACION',
@@ -237,7 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         ':id_materia' => $id_materia,
                         ':id_lapso' => $id_lapso,
                         ':calificacion_anterior' => null,
-                        ':calificacion_nueva' => $calificacion,
+                        ':calificacion_nueva' => $calificacion_redondeada,
                         ':obs_anterior' => null,
                         ':obs_nueva' => $observacion_nueva,
                         ':tipo_cambio' => 'CREACION',

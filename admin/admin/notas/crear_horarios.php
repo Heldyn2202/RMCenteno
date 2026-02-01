@@ -312,7 +312,7 @@ include('../../admin/layout/parte1.php');
                                 <div class="form-group">
                                     <label>Período Académico</label>
                                     <input type="text" class="form-control" readonly 
-                                           value="<?= $gestion_activa ? 'Desde: '.date('d/m/Y', strtotime($gestion_activa['desde'])).' Hasta: '.date('d/m/Y', strtotime($gestion_activa['hasta'])) : 'No hay período activo' ?>">
+                                           value="<?= $gestion_activa ? date('Y', strtotime($gestion_activa['desde'])).' - '.date('Y', strtotime($gestion_activa['hasta'])) : 'No hay período activo' ?>">
                                     <?php if($gestion_activa): ?>
                                     <input type="hidden" name="id_gestion" value="<?= $gestion_activa['id_gestion'] ?>">
                                     <?php endif; ?>
@@ -358,41 +358,116 @@ include('../../admin/layout/parte1.php');
                                 </thead>
                                 <tbody>
                                     <?php
+                                    // Definir los períodos de clase según la parrilla de la imagen (07:00 AM - 05:10 PM)
                                     $horarios = [
-                                        ['07:50', '08:30'], ['08:30', '09:10'], ['09:10', '09:50'],
-                                        ['10:10', '10:50'], ['10:50', '11:30'], ['11:30', '12:10']
+                                        ['07:00', '07:40'],   // Período 1
+                                        ['07:40', '08:20'],   // Período 2
+                                        ['08:20', '09:00'],   // Período 3
+                                        ['09:00', '09:40'],   // Período 4
+                                        ['09:50', '10:30'],   // Período 5 (después de RECESO 09:40-09:50)
+                                        ['10:30', '11:10'],   // Período 6
+                                        ['11:10', '11:50'],   // Período 7
+                                        ['11:50', '12:30'],   // Período 8
+                                        ['01:00', '01:40'],   // Período 9 (después de ALMUERZO 12:30-01:00)
+                                        ['01:40', '02:20'],   // Período 10
+                                        ['02:30', '03:10'],   // Período 11 (después de RECESO 02:20-02:30)
+                                        ['03:10', '03:50'],   // Período 12
+                                        ['03:50', '04:30'],   // Período 13
+                                        ['04:20', '05:10']    // Período 14 (según imagen, aunque se solapa con período 13)
                                     ];
                                     
-                                    foreach($horarios as $bloque): 
-                                        list($inicio, $fin) = $bloque;
+                                    // Bloques especiales que se mostrarán pero no se guardarán en BD
+                                    $bloques_especiales = [
+                                        ['09:40', '09:50', 'RECESO'],
+                                        ['12:30', '13:00', 'ALMUERZO'],  // Internamente 13:00, se mostrará como 01:00
+                                        ['02:20', '02:30', 'RECESO']
+                                    ];
+                                    
+                                    // Combinar horarios y bloques especiales
+                                    $todos_bloques = [];
+                                    foreach ($horarios as $bloque) {
+                                        $todos_bloques[] = ['tipo' => 'clase', 'inicio' => $bloque[0], 'fin' => $bloque[1]];
+                                    }
+                                    foreach ($bloques_especiales as $bloque) {
+                                        $todos_bloques[] = ['tipo' => 'especial', 'inicio' => $bloque[0], 'fin' => $bloque[1], 'nombre' => $bloque[2]];
+                                    }
+                                    
+                                    // Ordenar por hora de inicio, usando minutos desde medianoche
+                                    // Las horas de 01:xx a 06:xx son PM (13:xx a 18:xx), se suman 12 horas
+                                    usort($todos_bloques, function($a, $b) {
+                                        list($h_a, $m_a) = explode(':', $a['inicio']);
+                                        list($h_b, $m_b) = explode(':', $b['inicio']);
+                                        
+                                        $h_a_int = (int)$h_a;
+                                        $h_b_int = (int)$h_b;
+                                        
+                                        // Si la hora es menor a 7, es PM (sumar 12 horas para ordenamiento)
+                                        if ($h_a_int < 7) {
+                                            $h_a_int += 12;
+                                        }
+                                        if ($h_b_int < 7) {
+                                            $h_b_int += 12;
+                                        }
+                                        
+                                        $min_a = $h_a_int * 60 + (int)$m_a;
+                                        $min_b = $h_b_int * 60 + (int)$m_b;
+                                        
+                                        return $min_a - $min_b;
+                                    });
+                                    
+                                    foreach($todos_bloques as $bloque_info): 
+                                        $inicio = $bloque_info['inicio'];
+                                        $fin = $bloque_info['fin'];
+                                        $es_especial = ($bloque_info['tipo'] === 'especial');
+                                        $nombre_especial = $es_especial ? $bloque_info['nombre'] : '';
                                     ?>
-                                    <tr>
-                                        <td><?= "$inicio - $fin" ?></td>
-                                        <?php foreach(['Lunes','Martes','Miércoles','Jueves','Viernes'] as $dia): ?>
+                                    <tr class="<?= $es_especial ? 'table-warning' : '' ?>">
                                         <td>
-                                            <select name="horario[<?= $dia ?>][<?= $inicio ?>][materia]" 
-                                                    class="form-control mb-2 materia-select" 
-                                                    data-grado="<?= $g['id_grado'] ?? '' ?>" 
-                                                    data-profesor=""
-                                                    data-seccion=""
-                                                    data-dia="<?= $dia ?>"
-                                                    data-inicio="<?= $inicio ?>"
-                                                    style="font-size: 12px;"
-                                                    disabled>
-                                                <option value="" data-placeholder="true">-- Seleccione primero Profesor --</option>
-                                            </select>
-                                            <select name="horario[<?= $dia ?>][<?= $inicio ?>][profesor]" 
-                                                    class="form-control profesor-select" 
-                                                    style="font-size: 12px;"
-                                                    data-dia="<?= $dia ?>" 
-                                                    data-inicio="<?= $inicio ?>" 
-                                                    data-fin="<?= $fin ?>"
-                                                    data-seccion=""
-                                                    disabled>
-                                                <option value="" data-placeholder="true">-- Seleccione primero Sección --</option>
-                                            </select>
-                                            <input type="hidden" name="horario[<?= $dia ?>][<?= $inicio ?>][hora_inicio]" value="<?= $inicio ?>">
-                                            <input type="hidden" name="horario[<?= $inicio ?>][<?= $dia ?>][hora_fin]" value="<?= $fin ?>">
+                                            <?php 
+                                            // Para ALMUERZO, mostrar 01:00 en lugar de 13:00 (formato 12h)
+                                            $hora_fin_display = $fin;
+                                            if ($es_especial && $nombre_especial === 'ALMUERZO' && $fin === '13:00') {
+                                                $hora_fin_display = '01:00';
+                                            }
+                                            echo "$inicio - $hora_fin_display";
+                                            ?>
+                                            <?php if ($es_especial): ?>
+                                                <br><small class="text-muted"><strong><?= $nombre_especial ?></strong></small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <?php foreach(['Lunes','Martes','Miércoles','Jueves','Viernes'] as $dia): ?>
+                                        <td class="<?= $es_especial ? 'text-center align-middle' : '' ?>">
+                                            <?php if ($es_especial): ?>
+                                                <!-- Bloque especial: solo mostrar texto, no inputs -->
+                                                <div class="text-muted" style="font-weight: bold; font-size: 14px;">
+                                                    <?= $nombre_especial ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <!-- Bloque de clase: mostrar selects -->
+                                                <select name="horario[<?= $dia ?>][<?= $inicio ?>][materia]" 
+                                                        class="form-control mb-2 materia-select" 
+                                                        data-grado="<?= $g['id_grado'] ?? '' ?>" 
+                                                        data-profesor=""
+                                                        data-seccion=""
+                                                        data-dia="<?= $dia ?>"
+                                                        data-inicio="<?= $inicio ?>"
+                                                        style="font-size: 12px;"
+                                                        disabled>
+                                                    <option value="" data-placeholder="true">-- Seleccione primero Profesor --</option>
+                                                </select>
+                                                <select name="horario[<?= $dia ?>][<?= $inicio ?>][profesor]" 
+                                                        class="form-control profesor-select" 
+                                                        style="font-size: 12px;"
+                                                        data-dia="<?= $dia ?>" 
+                                                        data-inicio="<?= $inicio ?>" 
+                                                        data-fin="<?= $fin ?>"
+                                                        data-seccion=""
+                                                        disabled>
+                                                    <option value="" data-placeholder="true">-- Seleccione primero Sección --</option>
+                                                </select>
+                                                <input type="hidden" name="horario[<?= $dia ?>][<?= $inicio ?>][hora_inicio]" value="<?= $inicio ?>">
+                                                <input type="hidden" name="horario[<?= $dia ?>][<?= $inicio ?>][hora_fin]" value="<?= $fin ?>">
+                                            <?php endif; ?>
                                         </td>
                                         <?php endforeach; ?>
                                     </tr>
@@ -405,9 +480,6 @@ include('../../admin/layout/parte1.php');
                     <div class="card-footer">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> Guardar horario
-                        </button>
-                        <button type="button" id="rellenarPrueba" class="btn btn-info">
-                            <i class="fas fa-magic"></i> Datos de Prueba
                         </button>
                     </div>
                 </form>
@@ -864,13 +936,22 @@ $(function() {
                                 // Inferir hora_fin si es inválida (00:00:00 o NULL)
                                 let horaFin = c.hora_fin ? c.hora_fin.substring(0, 5) : '';
                                 if (!horaFin || horaFin === '00:00') {
+                                    // Mapa de horas de inicio a fin para los 14 períodos según la imagen
                                     const mapaHoras = {
-                                        '07:50': '08:30',
-                                        '08:30': '09:10',
-                                        '09:10': '09:50',
-                                        '10:10': '10:50',
-                                        '10:50': '11:30',
-                                        '11:30': '12:10'
+                                        '07:00': '07:40',
+                                        '07:40': '08:20',
+                                        '08:20': '09:00',
+                                        '09:00': '09:40',
+                                        '09:50': '10:30',
+                                        '10:30': '11:10',
+                                        '11:10': '11:50',
+                                        '11:50': '12:30',
+                                        '01:00': '01:40',
+                                        '01:40': '02:20',
+                                        '02:30': '03:10',
+                                        '03:10': '03:50',
+                                        '03:50': '04:30',
+                                        '04:20': '05:10'
                                     };
                                     horaFin = mapaHoras[horaInicio] || horaFin;
                                 }
@@ -1088,181 +1169,6 @@ $(function() {
     });
     
         return false;
-    });
-    
-    // Rellenar datos de prueba con profesores y materias asignadas a la sección
-    $('#rellenarPrueba').click(function() {
-        const gradoId = $('#grado').val();
-        const seccionId = $('#seccion').val();
-        
-        // Validar que haya grado y sección seleccionados
-        if (!gradoId || !seccionId) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Campos requeridos',
-                text: 'Debe seleccionar un Grado y una Sección antes de cargar datos de prueba'
-            });
-            return;
-        }
-        
-        // Validar que los selects de profesores estén habilitados (sección ya cargada)
-        if ($('.profesor-select').first().is(':disabled')) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Sección no cargada',
-                text: 'Primero debe seleccionar una Sección para cargar los profesores disponibles'
-            });
-            return;
-        }
-        
-        // Mostrar indicador de carga
-        Swal.fire({
-            title: 'Cargando datos...',
-            text: 'Obteniendo profesores y materias asignadas',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-        
-        // Obtener profesores de la sección (ya cargados en los selects)
-        const profesoresDisponibles = [];
-        $('.profesor-select').first().find('option:not([data-placeholder])').each(function() {
-            const $option = $(this);
-            if ($option.val() && $option.val() !== '') {
-                profesoresDisponibles.push({
-                    id: $option.val(),
-                    nombre: $option.text()
-                });
-            }
-        });
-        
-        if (profesoresDisponibles.length === 0) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Sin profesores',
-                text: 'No hay profesores disponibles en esta sección'
-            });
-            return;
-        }
-        
-        // Obtener materias para cada profesor y construir lista de profesores con materias
-        const profesoresConMaterias = [];
-        let profesoresProcesados = 0;
-        
-        profesoresDisponibles.forEach(function(profesor) {
-        $.ajax({
-                url: 'ajax/obtener_materias.php',
-                method: 'GET',
-                data: {
-                    id_profesor: profesor.id,
-                    id_seccion: seccionId,
-                    id_grado: gradoId
-                },
-                dataType: 'json',
-                success: function(responseMaterias) {
-                    if (responseMaterias.success && responseMaterias.data && responseMaterias.data.length > 0) {
-                        profesoresConMaterias.push({
-                            profesor: profesor,
-                            materias: responseMaterias.data
-                        });
-                    }
-                    
-                    profesoresProcesados++;
-                    
-                    // Cuando todos los profesores hayan sido procesados
-                    if (profesoresProcesados === profesoresDisponibles.length) {
-                        if (profesoresConMaterias.length === 0) {
-                            Swal.fire({
-                                icon: 'warning',
-                                title: 'Sin materias',
-                                text: 'Los profesores de esta sección no tienen materias asignadas'
-                            });
-                            return;
-                        }
-                        
-                        // Rellenar bloques aleatoriamente
-                        const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
-                        const horarios = ['07:50', '08:30', '09:10', '10:10', '10:50', '11:30'];
-                        
-                        // Función para obtener un elemento aleatorio de un array
-                        function getRandomElement(arr) {
-                            return arr[Math.floor(Math.random() * arr.length)];
-                        }
-                        
-                        // Crear lista de bloques disponibles
-                        const bloquesDisponibles = [];
-                        dias.forEach(function(dia) {
-                            horarios.forEach(function(horaInicio) {
-                                bloquesDisponibles.push({ dia: dia, horaInicio: horaInicio });
-        });
-    });
-    
-                        // Mezclar aleatoriamente los bloques
-                        for (let i = bloquesDisponibles.length - 1; i > 0; i--) {
-                            const j = Math.floor(Math.random() * (i + 1));
-                            [bloquesDisponibles[i], bloquesDisponibles[j]] = [bloquesDisponibles[j], bloquesDisponibles[i]];
-                        }
-                        
-                        // Rellenar aproximadamente el 60% de los bloques
-                        const bloquesARellenar = Math.floor(bloquesDisponibles.length * 0.6);
-                        const bloquesSeleccionados = bloquesDisponibles.slice(0, bloquesARellenar);
-                        let bloquesRellenados = 0;
-                        let delay = 0;
-                        
-                        bloquesSeleccionados.forEach(function(bloque, index) {
-                            setTimeout(function() {
-                                // Seleccionar un profesor aleatorio con materias
-                                const profesorMaterias = getRandomElement(profesoresConMaterias);
-                                const materia = getRandomElement(profesorMaterias.materias);
-                                
-                                // Encontrar los selects correspondientes
-                                const $materiaSelect = $(`select[name="horario[${bloque.dia}][${bloque.horaInicio}][materia]"]`);
-                                const $profesorSelect = $(`select[name="horario[${bloque.dia}][${bloque.horaInicio}][profesor]"]`);
-                                
-                                if ($materiaSelect.length && $profesorSelect.length) {
-                                    // Primero seleccionar el profesor
-                                    $profesorSelect.val(profesorMaterias.profesor.id).trigger('change');
-                                    
-                                    // Esperar a que se carguen las materias, luego seleccionar la materia
-                                    setTimeout(function() {
-                                        $materiaSelect.val(materia.id);
-                                        bloquesRellenados++;
-                                        
-                                        // Cuando se hayan rellenado todos los bloques
-                                        if (bloquesRellenados === bloquesSeleccionados.length) {
-                                            Swal.close();
-                                            mostrarNotificacion('success', 'Éxito', `Datos de prueba cargados: ${bloquesRellenados} bloques asignados con profesores y materias de la sección`);
-                                        }
-                                    }, 800);
-                                } else {
-                                    // Si no se encontraron los selects, contar como completado de todas formas
-                                    bloquesRellenados++;
-                                    if (bloquesRellenados === bloquesSeleccionados.length) {
-                                        Swal.close();
-                                        mostrarNotificacion('success', 'Éxito', `Datos de prueba cargados: ${bloquesRellenados} bloques asignados`);
-                                    }
-                                }
-                            }, delay);
-                            
-                            delay += 100; // Espaciar las asignaciones para evitar conflictos
-                        });
-                    }
-                },
-                error: function() {
-                    profesoresProcesados++;
-                    if (profesoresProcesados === profesoresDisponibles.length) {
-                        Swal.close();
-                        if (profesoresConMaterias.length === 0) {
-                            mostrarNotificacion('error', 'Error', 'Error al obtener materias de los profesores');
-                        } else {
-                            // Continuar con los profesores que sí tienen materias
-                            // (el código de arriba ya maneja esto)
-                        }
-                    }
-                }
-            });
-        });
     });
 });
 </script>
