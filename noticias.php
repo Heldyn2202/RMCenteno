@@ -35,7 +35,7 @@ if (isset($_GET['pageno'])) {
 $no_of_records_per_page = 9; // Múltiplo de 3 para el layout 3x3
 $offset = ($pageno-1) * $no_of_records_per_page;
 
-$total_pages_sql = "SELECT COUNT(*) FROM tblposts";
+$total_pages_sql = "SELECT COUNT(*) FROM tblposts WHERE Is_Active=1";
 $result = mysqli_query($con,$total_pages_sql);
 $total_rows = mysqli_fetch_array($result)[0];
 $total_pages = ceil($total_rows / $no_of_records_per_page);
@@ -503,6 +503,18 @@ if ($query) {
             font-size: 13px;
             color: var(--text-light);
             margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        
+        .noticia-fecha {
+            color: #6c757d;
+        }
+        
+        .noticia-categoria {
+            color: var(--primary-color);
+            font-weight: 500;
         }
         
         .noticia-excerpt {
@@ -579,66 +591,94 @@ if ($query) {
         
         /* Footer */
         .site-footer {
-            background-color: var(--primary-color);
+            background-color: #1a1a1a; /* Negro más oscuro */
             color: var(--white);
+            padding: 20px 0 10px;
         }
         
         .footer-main {
-            padding: 60px 0 30px;
+            padding: 0;
         }
         
-        .footer-logo img {
-            height: 80px;
-            margin-bottom: 20px;
+        /* Contenedor principal más compacto */
+        .footer-main .container {
+            padding: 0 10px;
         }
         
-        .footer-info {
-            font-size: 14px;
-            line-height: 1.6;
+        /* Descripción - texto justificado */
+        .footer-main p {
+            font-size: 0.9rem !important;
+            line-height: 1.5 !important;
+            color: rgba(255, 255, 255, 0.9) !important;
+            margin-bottom: 10px !important;
         }
         
-        .footer-info a {
-            color: var(--white);
+        /* Información de contacto COMPACTA */
+        .contact-info {
+            font-size: 0.8rem !important;
+            color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
         }
         
-        .footer-info a:hover {
-            color: var(--light-bg);
+        .contact-info span {
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
         }
         
+        .contact-info i {
+            font-size: 0.8rem;
+            color: #4a8cff; /* Azul para los iconos */
+        }
+        
+        .contact-info a {
+            color: white !important;
+            text-decoration: none !important;
+            transition: color 0.3s ease;
+        }
+        
+        .contact-info a:hover {
+            color: #4a8cff !important;
+            text-decoration: underline !important;
+        }
+        
+        /* REDES SOCIALES centradas */
         .footer-social {
             display: flex;
-            gap: 10px;
-            margin-top: 20px;
+            justify-content: center;
+            gap: 8px;
+            margin: 10px 0;
         }
         
-        .footer-social a {
+        .footer-social .social-icon {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 36px;
-            height: 36px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             background-color: rgba(255,255,255,0.1);
             color: var(--white);
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
         }
         
-        .footer-social a:hover {
-            background-color: var(--white);
-            color: var(--primary-color);
+        .footer-social .social-icon:hover {
+            background-color: #4a8cff; /* Azul al hover */
+            color: white;
+            transform: translateY(-2px);
         }
         
-        .footer-bottom {
-            background-color: var(--dark-bg);
-            padding: 20px 0;
-            font-size: 14px;
-        }
-        
-        .footer-bottom a {
-            color: var(--white);
-        }
-        
-        .footer-bottom a:hover {
-            color: var(--light-bg);
+        /* Derechos y créditos en una línea */
+        .footer-bottom-content {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.8);
+            padding-top: 8px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 8px;
         }
         
         /* Botones */
@@ -688,11 +728,65 @@ if ($query) {
             .mobile-nav-container {
                 display: block;
             }
+            
+            /* Footer responsive */
+            .site-footer {
+                padding: 15px 0 8px;
+            }
         }
         
         @media (max-width: 768px) {
             .noticias-grid {
                 grid-template-columns: 1fr;
+            }
+            
+            /* Footer responsive para tablet */
+            .footer-main p {
+                font-size: 0.85rem !important;
+                line-height: 1.4 !important;
+                margin-bottom: 8px !important;
+            }
+            
+            .contact-info {
+                font-size: 0.75rem !important;
+                flex-direction: column;
+                gap: 5px;
+                align-items: center;
+            }
+            
+            .contact-info span {
+                margin-right: 0 !important;
+                margin-bottom: 4px;
+            }
+            
+            .footer-social {
+                gap: 6px;
+                margin: 8px 0;
+            }
+            
+            .footer-social .social-icon {
+                width: 28px;
+                height: 28px;
+                font-size: 0.8rem;
+            }
+            
+            .footer-bottom-content {
+                font-size: 0.7rem;
+                padding-top: 6px;
+                margin-top: 6px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            /* Footer responsive para móviles */
+            .footer-bottom-content {
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+            }
+            
+            .footer-bottom-content span:nth-child(2) {
+                display: none; /* Oculta el separador "|" en móviles */
             }
         }
     </style>
@@ -705,7 +799,7 @@ if ($query) {
             <div class="container">
                 <div class="hm-header-inner">
                     <div class="site-branding">
-                        <h2 class="site-title"><a href="index.php">Portal Escolar</a></h2>
+                        <h2 class="site-title"><a href="index.php">U.E. Roberto Martinez Centeno</a></h2>
                     </div>
                     
                     <nav class="main-navigation">
@@ -731,7 +825,7 @@ if ($query) {
                             </a>
                             <?php endforeach; ?>
                         </nav>
-                        <a href="admin/" class="hm-cta-btn">Login</a>
+                        <a href="admin/login/login.php" class="hm-cta-btn">Login</a>
                     </div>
                     
                     <!-- Botón hamburguesa para móviles -->
@@ -801,11 +895,34 @@ if ($query) {
             <!-- Grid 3x3 para los posts -->
             <?php if (count($posts) > 0): ?>
             <div class="noticias-grid">
-                <?php foreach ($posts as $row): ?>
+                <?php foreach ($posts as $row): 
+                    // RUTA CORREGIDA PARA IMÁGENES - ¡¡¡ESTO ES LO QUE CAMBIÉ!!!
+                    $ruta_imagen = 'admin/admin/uploads/post/' . htmlentities($row['PostImage']);
+                    
+                    // Verificar múltiples rutas posibles
+                    if (!file_exists($ruta_imagen)) {
+                        // Intentar otras rutas comunes
+                        $ruta_alternativa1 = 'admin/uploads/post/' . htmlentities($row['PostImage']);
+                        $ruta_alternativa2 = 'uploads/post/' . htmlentities($row['PostImage']);
+                        
+                        if (file_exists($ruta_alternativa1)) {
+                            $ruta_imagen = $ruta_alternativa1;
+                        } elseif (file_exists($ruta_alternativa2)) {
+                            $ruta_imagen = $ruta_alternativa2;
+                        } else {
+                            $ruta_imagen = 'https://placehold.co/400x200/1a4b8c/white?text=Noticia';
+                        }
+                    }
+                    
+                    // Formatear fecha
+                    $fecha_publicacion = date('d/m/Y', strtotime($row['postingdate']));
+                ?>
                 <article class="noticia-card">
                     <div class="noticia-image">
                         <a href="news-details.php?nid=<?php echo htmlentities($row['pid'])?>">
-                            <img src="admin/uploads/post/<?php echo htmlentities($row['PostImage']);?>" alt="<?php echo htmlentities($row['posttitle']);?>" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlbiBubyBkaXNwb25pYmxlPC90ZXh0Pjwvc3ZnPg=='">
+                            <img src="<?php echo $ruta_imagen; ?>" 
+                                 alt="<?php echo htmlentities($row['posttitle']);?>" 
+                                 onerror="this.onerror=null; this.src='https://placehold.co/400x200/1a4b8c/white?text=Noticia'; console.error('Error cargando imagen de noticia:', '<?php echo addslashes($row['PostImage']); ?>')">
                         </a>
                     </div>
                     <div class="noticia-content">
@@ -815,8 +932,12 @@ if ($query) {
                             </a>
                         </h3>
                         <div class="noticia-meta">
-                            <span class="fecha"><?php echo htmlentities($row['postingdate']);?></span>
-                            <span class="categoria"> | <?php echo htmlentities($row['category']);?></span>
+                            <div class="noticia-fecha">
+                                <i class="far fa-calendar"></i> <?php echo $fecha_publicacion; ?>
+                            </div>
+                            <div class="noticia-categoria">
+                                <i class="fas fa-tag"></i> <?php echo htmlentities($row['category']);?>
+                            </div>
                         </div>
                         <div class="noticia-excerpt">
                             <p><?php echo substr(strip_tags(htmlspecialchars_decode($row['postdetails'])), 0, 150); ?>...</p>
@@ -858,53 +979,68 @@ if ($query) {
         </div>
     </div>
     
-    <!-- Footer -->
+    <!-- Footer Compacto -->
     <footer class="site-footer">
         <div class="footer-main">
             <div class="container">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="footer-logo">
-                            <h3 style="color: white; margin-bottom: 20px;">Portal Escolar</h3>
-                        </div>
-                        <div class="footer-info">
-                            <p><strong>Dirección:</strong> Calle Principal #123, Colonia Centro. Código Postal 12345</p>
-                            <p><strong>Contacto:</strong> <a href="mailto:info@colegioejemplo.edu">info@colegioejemplo.edu</a></p>
-                            <p><strong>Teléfono:</strong> <a href="tel:+1234567890">+123 456 7890</a></p>
-                        </div>
+                <!-- Primera fila: Descripción -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <p>U.E. Roberto Martinez Centeno - Institución Educativa comprometida con la excelencia académica y formación integral de nuestros estudiantes.</p>
+                    </div>
+                </div>
+                
+                <!-- Línea divisoria -->
+                <div style="border-top: 1px solid rgba(255,255,255,0.15); margin: 10px auto; max-width: 500px;"></div>
+                
+                <!-- Redes Sociales Centradas -->
+                <div class="row mb-3">
+                    <div class="col-12 text-center">
                         <div class="footer-social">
                             <?php foreach ($social_media as $social): ?>
-                            <a href="<?php echo $social['url']; ?>" target="_blank">
+                            <a href="<?php echo $social['url']; ?>" target="_blank" class="social-icon">
                                 <?php if ($social['icon_type'] == 'fontawesome'): ?>
                                     <i class="<?php echo $social['icon']; ?>"></i>
                                 <?php else: ?>
-                                    <img src="admin/<?php echo $social['icon']; ?>" width="16" height="16">
+                                    <img src="admin/<?php echo $social['icon']; ?>" width="12" height="12">
                                 <?php endif; ?>
                             </a>
                             <?php endforeach; ?>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="footer-info">
-                            <h3 style="color: white; margin-bottom: 20px;">Portal Escolar</h3>
-                            <p>El Portal Escolar es la plataforma oficial de comunicación e información educativa, dedicada a promover la innovación y el desarrollo integral en el ámbito educativo.</p>
-                            <p>Nuestro compromiso es brindar recursos, herramientas y contenidos de calidad para fortalecer el proceso de enseñanza-aprendizaje de nuestra comunidad educativa.</p>
+                </div>
+                
+                <!-- Información de contacto COMPACTA -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="contact-info text-center">
+                            <span style="margin-right: 15px;">
+                                <i class="fas fa-map-marker-alt" style="margin-right: 5px;"></i>
+                                Caricuso, Urbanización García
+                            </span>
+                            <span style="margin-right: 15px;">
+                                <i class="fas fa-envelope" style="margin-right: 5px;"></i>
+                                <a href="mailto:RobertoVC@gmail.com" style="color: white; text-decoration: none;">
+                                    RobertoVC@gmail.com
+                                </a>
+                            </span>
+                            <span>
+                                <i class="fas fa-phone" style="margin-right: 5px;"></i>
+                                <a href="tel:021223392" style="color: white; text-decoration: none;">
+                                    021223392
+                                </a>
+                            </span>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <div class="container">
+                
+                <!-- Derechos y créditos EN LA MISMA LÍNEA -->
                 <div class="row">
-                    <div class="col-md-6">
-                        <div class="footer-copyright">
-                            &copy; <?php echo date('Y'); ?> Portal Escolar | Institución Educativa
-                        </div>
-                    </div>
-                    <div class="col-md-6 text-end">
-                        <div class="footer-credits">
-                            Desarrollado para la comunidad educativa
+                    <div class="col-12">
+                        <div class="footer-bottom-content text-center">
+                            <span>&copy; <?php echo date('Y'); ?> U.E. Roberto Martinez Centeno</span>
+                            <span style="margin: 0 10px;">|</span>
+                            <span>Desarrollado para la comunidad educativa</span>
                         </div>
                     </div>
                 </div>
@@ -948,6 +1084,19 @@ if ($query) {
                     link.addEventListener('click', closeMobileMenu);
                 });
             }
+            
+            // Depuración de imágenes
+            console.log('🔍 DEPURACIÓN DE IMÁGENES DE NOTICIAS');
+            const noticiaImagenes = document.querySelectorAll('.noticia-image img');
+            noticiaImagenes.forEach((img, index) => {
+                img.addEventListener('error', function() {
+                    console.error(`❌ Error cargando imagen de noticia ${index + 1}:`, this.src);
+                });
+                
+                img.addEventListener('load', function() {
+                    console.log(`✅ Imagen de noticia ${index + 1} cargada:`, this.src);
+                });
+            });
         });
     </script>
 </body>

@@ -23,11 +23,11 @@ if (!defined('BD')) {
 }  
 
 if (!defined('APP_NAME')) {  
-    define('APP_NAME', 'U.E.N ROBERTO MARTINEZ CENTENO');  
+    define('APP_NAME', 'U.E. ROBERTO MARTINEZ CENTENO');  
 }  
 
 if (!defined('APP_URL')) {  
-    define('APP_URL', 'http://localhost/heldyn/centeno/admin');  
+    define('APP_URL', 'http://localhost/sige/centeno/admin');  
 }  
 
 if (!defined('KEY_API_MAPS')) {  

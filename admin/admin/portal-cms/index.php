@@ -5,7 +5,7 @@
 // CONFIGURACIÓN DE RUTAS ABSOLUTAS
 // ============================================
 $base_path = dirname(dirname(dirname(__DIR__))); // Ruta base del proyecto
-$base_url = 'http://' . $_SERVER['HTTP_HOST'] . '/heldyn/centeno/';
+$base_url = 'http://' . $_SERVER['HTTP_HOST'] . '/sige/centeno/';
 $portal_url = $base_url . 'index.php';
 
 // ============================================
@@ -327,7 +327,7 @@ $stats = [
                         <div class="module-icon"><i class="fas fa-newspaper"></i></div>
                         <h5 class="card-title">Noticias</h5>
                         <p class="card-text text-muted small">Publicaciones del portal</p>
-                        <a href="editor-universal.php?seccion=noticias" class="btn btn-admin">
+                        <a href="noticias" class="btn btn-admin">
                             <i class="fas fa-edit me-1"></i> Gestionar
                         </a>
                     </div>
@@ -341,7 +341,7 @@ $stats = [
                         <div class="module-icon"><i class="fas fa-graduation-cap"></i></div>
                         <h5 class="card-title">Académico</h5>
                         <p class="card-text text-muted small">Recursos académicos</p>
-                        <a href="editor-universal.php?seccion=academico" class="btn btn-admin">
+                        <a href="noticias=academico" class="btn btn-admin">
                             <i class="fas fa-edit me-1"></i> Gestionar
                         </a>
                     </div>
@@ -355,7 +355,7 @@ $stats = [
                         <div class="module-icon"><i class="fas fa-calendar-alt"></i></div>
                         <h5 class="card-title">Calendario</h5>
                         <p class="card-text text-muted small">Eventos y fechas</p>
-                        <a href="editor-universal.php?seccion=calendario" class="btn btn-admin">
+                        <a href="noticias=calendario" class="btn btn-admin">
                             <i class="fas fa-edit me-1"></i> Gestionar
                         </a>
                     </div>
@@ -369,7 +369,7 @@ $stats = [
                         <div class="module-icon"><i class="fas fa-shoe-prints"></i></div>
                         <h5 class="card-title">Pie de Página</h5>
                         <p class="card-text text-muted small">Redes sociales y enlaces</p>
-                        <a href="editor-universal.php?seccion=footer" class="btn btn-admin">
+                        <a href="noticias=footer" class="btn btn-admin">
                             <i class="fas fa-edit me-1"></i> Gestionar
                         </a>
                     </div>

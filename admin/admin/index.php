@@ -1,6 +1,10 @@
 <?php  
 include ('../app/config.php');  
 include ('../admin/layout/parte1.php');  
+
+// Verificar si la variable de sesión existe
+$rol_sesion_usuario = $_SESSION['rol_sesion_usuario'] ?? '';
+
 include ('../app/controllers/roles/listado_de_roles.php');  
 include ('../app/controllers/usuarios/listado_de_usuarios.php');  
 include ('../app/controllers/niveles/listado_de_niveles.php');  
@@ -11,6 +15,23 @@ include ('../app/controllers/estudiantes/listado_de_estudiantes.php');
 include ('../app/controllers/estudiantes/reporte_estudiantes.php');  
 include ('../app/controllers/secciones/listado_de_secciones.php');  
 include ('../app/controllers/estudiantes/lista_inscripcion.php');  
+
+// Inicializar variable para comentarios pendientes
+$comentarios_pendientes = 0;
+
+// Si es administrador, obtener comentarios pendientes
+if ($rol_sesion_usuario == "ADMINISTRADOR") {
+    try {
+        $sql_comentarios = "SELECT COUNT(*) as total_pendientes FROM tblcomments WHERE status = 0";
+        $stmt = $pdo->prepare($sql_comentarios);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $comentarios_pendientes = $result['total_pendientes'] ?? 0;
+    } catch (Exception $e) {
+        error_log("Error al obtener comentarios pendientes: " . $e->getMessage());
+        $comentarios_pendientes = 0;
+    }
+}
 
 // Funciones auxiliares
 function getPeriodoEscolarActivo($pdo) {  
@@ -1331,7 +1352,11 @@ if ($rol_sesion_usuario == "DOCENTE") {
                                     <i class="fas fa-chalkboard" style="color: #3c8dbc; font-size: 1.5rem;"></i>  
                                 </div>  
                             </div>
-                        </div>  
+
+
+                            
+                        </div> 
+
                         <a href="<?=APP_URL;?>/admin/configuraciones/secciones" class="card-footer custom-btn text-white text-center" style="text-decoration: none; display: block; padding: 0.75rem;">  
                             Configurar <i class="fas fa-arrow-circle-right ml-1"></i>  
                         </a>  
@@ -1374,6 +1399,18 @@ if ($rol_sesion_usuario == "DOCENTE") {
                                     </div>
                                     <p class="mb-1">Validar información de representantes registrados</p>
                                     <small class="text-info">Verificar datos</small>
+                                </a>
+                                <!-- Enlace corregido para comentarios -->
+                                <a href="<?=APP_URL;?>/admin/comentarios/comentarios.php" class="list-group-item list-group-item-action <?php echo ($comentarios_pendientes > 0) ? 'border-left-danger' : ''; ?>">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">Comentarios por moderar</h6>
+                                        <small class="text-muted"><?php echo ($comentarios_pendientes > 0) ? 'Urgente' : 'Revisar'; ?></small>
+                                    </div>
+                                    <p class="mb-1"><?php echo $comentarios_pendientes; ?> comentario(s) esperando aprobación</p>
+                                    <small class="<?php echo ($comentarios_pendientes > 0) ? 'text-danger' : 'text-success'; ?>">
+                                        <i class="fas fa-<?php echo ($comentarios_pendientes > 0) ? 'exclamation-triangle' : 'check-circle'; ?> mr-1"></i>
+                                        <?php echo ($comentarios_pendientes > 0) ? 'Moderar ahora' : 'Todo al día'; ?>
+                                    </small>
                                 </a>
                             </div>
                         </div>

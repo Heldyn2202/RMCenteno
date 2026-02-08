@@ -17,6 +17,7 @@ if ($socialResult) {
 
 // Obtener información de la noticia para el breadcrumb
 $currentPostTitle = "Noticias";
+$pid = 0; // Inicializar variable
 if(isset($_GET['nid'])) {
     $pid = intval($_GET['nid']);
     $postQuery = mysqli_query($con, "SELECT PostTitle FROM tblposts WHERE id = '$pid'");
@@ -41,18 +42,26 @@ if(isset($_POST['submit'])) {
             $postid = intval($_GET['nid']);
             $st1 = '0';
             
-            $query = mysqli_query($con, "INSERT INTO tblcomments(postId, name, email, comment, status) 
-                                         VALUES('$postid', '$name', '$email', '$comment', '$st1')");
-            
-            if($query) {
-                $showAlert = true;
-                $alertType = 'success';
-                $alertMessage = 'Comentario enviado exitosamente. Se mostrará después de la revisión del administrador.';
-                unset($_SESSION['token']);
+            // Verificar que el post existe
+            $postCheck = mysqli_query($con, "SELECT id FROM tblposts WHERE id = '$postid'");
+            if(mysqli_num_rows($postCheck) > 0) {
+                $query = mysqli_query($con, "INSERT INTO tblcomments(postId, name, email, comment, status) 
+                                             VALUES('$postid', '$name', '$email', '$comment', '$st1')");
+                
+                if($query) {
+                    $showAlert = true;
+                    $alertType = 'success';
+                    $alertMessage = 'Comentario enviado exitosamente. Se mostrará después de la revisión del administrador.';
+                    unset($_SESSION['token']);
+                } else {
+                    $showAlert = true;
+                    $alertType = 'error';
+                    $alertMessage = 'Error al guardar el comentario: ' . mysqli_error($con);
+                }
             } else {
                 $showAlert = true;
                 $alertType = 'error';
-                $alertMessage = 'Algo salió mal. Por favor, inténtelo de nuevo.'; 
+                $alertMessage = 'La publicación no existe.';
             }
         } else {
             $showAlert = true;
@@ -721,6 +730,23 @@ if(isset($_POST['submit'])) {
             padding: 0 15px;
         }
         
+        /* Estilos adicionales para títulos en sidebar */
+        .sidebar-card .card-header h5 {
+            color: white !important;
+            font-weight: 600;
+        }
+        
+        /* Asegurar que los íconos también sean blancos */
+        .sidebar-card .card-header i {
+            color: white !important;
+        }
+        
+        /* Si el problema persiste, usa este selector más específico */
+        .card-header[style*="background-color"] h5,
+        .card-header[style*="background-color"] i {
+            color: white !important;
+        }
+        
         /* Responsive */
         @media (max-width: 992px) {
             /* Navegación responsive - ocultar navegación principal en móvil */
@@ -761,7 +787,7 @@ if(isset($_POST['submit'])) {
             <div class="container">
                 <div class="hm-header-inner">
                     <div class="site-branding">
-                        <h2 class="site-title"><a href="index.php">Portal Escolar</a></h2>
+                        <h2 class="site-title"><a href="index.php">U.E. Roberto Martinez Centeno</a></h2>
                     </div>
                     
                     <nav class="main-navigation">
@@ -787,7 +813,7 @@ if(isset($_POST['submit'])) {
                             </a>
                             <?php endforeach; ?>
                         </nav>
-                        <a href="admin/" class="hm-cta-btn">Login</a>
+                        <a href="admin/login/login.php" class="hm-cta-btn">Login</a>
                     </div>
                     
                     <!-- Botón hamburguesa para móviles -->
@@ -870,10 +896,33 @@ if(isset($_POST['submit'])) {
                         
                         if(mysqli_num_rows($query) > 0) {
                             while ($row = mysqli_fetch_array($query)) {
+                                // CORRECCIÓN DE RUTA DE IMAGEN - igual que en noticias.php
+                                $ruta_imagen = 'admin/admin/uploads/post/' . htmlentities($row['PostImage']);
+                                
+                                // Verificar múltiples rutas posibles
+                                if (!file_exists($ruta_imagen)) {
+                                    // Intentar otras rutas comunes
+                                    $ruta_alternativa1 = 'admin/uploads/post/' . htmlentities($row['PostImage']);
+                                    $ruta_alternativa2 = 'uploads/post/' . htmlentities($row['PostImage']);
+                                    $ruta_alternativa3 = '../admin/uploads/post/' . htmlentities($row['PostImage']);
+                                    
+                                    if (file_exists($ruta_alternativa1)) {
+                                        $ruta_imagen = $ruta_alternativa1;
+                                    } elseif (file_exists($ruta_alternativa2)) {
+                                        $ruta_imagen = $ruta_alternativa2;
+                                    } elseif (file_exists($ruta_alternativa3)) {
+                                        $ruta_imagen = $ruta_alternativa3;
+                                    } else {
+                                        $ruta_imagen = 'https://placehold.co/800x450/1a4b8c/white?text=Noticia';
+                                    }
+                                }
                     ?>
                     <div class="news-detail-card card mb-4">
                         <div class="news-image-container">
-                            <img class="news-detail-img card-img-top" src="admin/uploads/post/<?php echo htmlentities($row['PostImage']);?>" alt="<?php echo htmlentities($row['posttitle']);?>" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlbiBubyBkaXNwb25pYmxlPC90ZXh0Pjwvc3ZnPg=='">
+                            <img class="news-detail-img card-img-top" 
+                                 src="<?php echo $ruta_imagen; ?>" 
+                                 alt="<?php echo htmlentities($row['posttitle']);?>"
+                                 onerror="this.onerror=null; this.src='https://placehold.co/800x450/1a4b8c/white?text=Noticia'; console.error('Error cargando imagen:', '<?php echo addslashes($row['PostImage']); ?>')">
                         </div>
                         <div class="card-body">
                             <h1 class="card-title text-blue"><?php echo htmlentities($row['posttitle']);?></h1>
@@ -918,7 +967,7 @@ if(isset($_POST['submit'])) {
                         
                         <h4 class="text-blue mb-4">Comentarios:</h4>
                         <?php 
-                        if(isset($pid)) {
+                        if(isset($pid) && $pid > 0) {
                            $sts = 1;
                             $comment_query = mysqli_query($con, "SELECT name, comment, postingDate FROM tblcomments WHERE postId = '$pid' AND status = '$sts'");
                             
@@ -944,6 +993,8 @@ if(isset($_POST['submit'])) {
                             } else {
                                 echo "<p class='text-center text-muted'>No hay comentarios aún. Sé el primero en comentar.</p>";
                             }
+                        } else {
+                            echo "<p class='text-center text-muted'>Selecciona una publicación para ver los comentarios.</p>";
                         }
                         ?>
                     </div>
@@ -951,23 +1002,11 @@ if(isset($_POST['submit'])) {
                 
                 <!-- Barra Lateral -->
                 <div class="col-lg-4">
-                    <div class="sidebar-card card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-search me-2"></i>Buscar</h5>
-                        </div>
-                        <div class="card-body">
-                            <form action="search.php" method="get">
-                                <div class="input-group">
-                                    <input type="text" name="search" class="form-control" placeholder="Buscar..." required>
-                                    <button class="btn btn-blue" type="submit">Ir</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+                    <!-- Bloque de búsqueda ELIMINADO -->
                     
                     <div class="sidebar-card card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-folder me-2"></i>Categorías</h5>
+                        <div class="card-header" style="background-color: var(--accent-color);">
+                            <h5 class="mb-0 text-white"><i class="fas fa-folder me-2"></i>Categorías</h5>
                         </div>
                         <div class="card-body">
                             <ul class="list-group list-group-flush">
@@ -984,8 +1023,8 @@ if(isset($_POST['submit'])) {
                     </div>
                     
                     <div class="sidebar-card card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-calendar me-2"></i>Publicaciones Recientes</h5>
+                        <div class="card-header" style="background-color: var(--accent-color);">
+                            <h5 class="mb-0 text-white"><i class="fas fa-calendar me-2"></i>Publicaciones Recientes</h5>
                         </div>
                         <div class="card-body">
                             <ul class="list-group list-group-flush">
@@ -1013,12 +1052,12 @@ if(isset($_POST['submit'])) {
                 <div class="row">
                     <div class="col-md-6">
                         <div class="footer-logo">
-                            <h3 style="color: white; margin-bottom: 20px;">Portal Escolar</h3>
+                            <h3 style="color: white; margin-bottom: 20px;">U.E. Roberto Martinez Centeno</h3>
                         </div>
                         <div class="footer-info">
-                            <p><strong>Dirección:</strong> Calle Principal #123, Colonia Centro. Código Postal 12345</p>
-                            <p><strong>Contacto:</strong> <a href="mailto:info@colegioejemplo.edu">info@colegioejemplo.edu</a></p>
-                            <p><strong>Teléfono:</strong> <a href="tel:+1234567890">+123 456 7890</a></p>
+                            <p><strong>Dirección:</strong> Caricuso, Urbanización García</p>
+                            <p><strong>Contacto:</strong> <a href="mailto:RobertoVC@gmail.com">RobertoVC@gmail.com</a></p>
+                            <p><strong>Teléfono:</strong> <a href="tel:021223392">021223392</a></p>
                         </div>
                         <div class="footer-social">
                             <?php foreach ($social_media as $social): ?>
@@ -1034,8 +1073,8 @@ if(isset($_POST['submit'])) {
                     </div>
                     <div class="col-md-6">
                         <div class="footer-info">
-                            <h3 style="color: white; margin-bottom: 20px;">Portal Escolar</h3>
-                            <p>El Portal Escolar es la plataforma oficial de comunicación e información educativa, dedicada a promover la innovación y el desarrollo integral en el ámbito educativo.</p>
+                            <h3 style="color: white; margin-bottom: 20px;">Institución Educativa</h3>
+                            <p>U.E. Roberto Martinez Centeno - Institución Educativa comprometida con la excelencia académica y formación integral de nuestros estudiantes.</p>
                             <p>Nuestro compromiso es brindar recursos, herramientas y contenidos de calidad para fortalecer el proceso de enseñanza-aprendizaje de nuestra comunidad educativa.</p>
                         </div>
                     </div>
@@ -1047,7 +1086,7 @@ if(isset($_POST['submit'])) {
                 <div class="row">
                     <div class="col-md-6">
                         <div class="footer-copyright">
-                            &copy; <?php echo date('Y'); ?> Portal Escolar | Institución Educativa
+                            &copy; <?php echo date('Y'); ?> U.E. Roberto Martinez Centeno | Institución Educativa
                         </div>
                     </div>
                     <div class="col-md-6 text-end">
@@ -1099,31 +1138,41 @@ if(isset($_POST['submit'])) {
                     link.addEventListener('click', closeMobileMenu);
                 });
             }
-        });
-    </script>
-    
-    <?php if ($showAlert): ?>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            <?php if ($alertType == 'success'): ?>
-                Swal.fire({
-                    icon: 'success',
-                    title: '¡Éxito!',
-                    text: '<?php echo $alertMessage; ?>',
-                    confirmButtonColor: '#1a4b8c',
-                    confirmButtonText: 'Aceptar'
+            
+            // Depuración de imágenes
+            console.log('🔍 DEPURACIÓN DE IMÁGENES');
+            const imagenDetalle = document.querySelector('.news-detail-img');
+            if (imagenDetalle) {
+                imagenDetalle.addEventListener('error', function() {
+                    console.error('❌ Error cargando imagen de noticia:', this.src);
                 });
-            <?php else: ?>
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: '<?php echo $alertMessage; ?>',
-                    confirmButtonColor: '#1a4b8c',
-                    confirmButtonText: 'Aceptar'
+                
+                imagenDetalle.addEventListener('load', function() {
+                    console.log('✅ Imagen de noticia cargada:', this.src);
                 });
+            }
+            
+            // Mostrar alerta si hay mensaje de PHP
+            <?php if ($showAlert): ?>
+                <?php if ($alertType == 'success'): ?>
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Éxito!',
+                        text: '<?php echo addslashes($alertMessage); ?>',
+                        confirmButtonColor: '#1a4b8c',
+                        confirmButtonText: 'Aceptar'
+                    });
+                <?php else: ?>
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: '<?php echo addslashes($alertMessage); ?>',
+                        confirmButtonColor: '#1a4b8c',
+                        confirmButtonText: 'Aceptar'
+                    });
+                <?php endif; ?>
             <?php endif; ?>
         });
     </script>
-    <?php endif; ?>
 </body>
 </html>

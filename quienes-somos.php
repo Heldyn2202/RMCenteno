@@ -1010,7 +1010,7 @@ if ($socialResult) {
         <div class="container">
             <div class="row align-items-center">
                 <?php if (!empty($quienes_somos['imagen_principal'])): 
-                    $ruta_imagen = '/heldyn/centeno/uploads/quienes-somos/' . $quienes_somos['imagen_principal'];
+                    $ruta_imagen = '/sige/centeno/uploads/quienes-somos/' . $quienes_somos['imagen_principal'];
                 ?>
                 <div class="col-lg-6 mb-5 mb-lg-0 fade-in">
                     <div class="content-image">
@@ -1150,7 +1150,7 @@ if ($socialResult) {
                     <div class="team-member">
                         <div class="team-member-img">
                             <?php if (!empty($miembro['imagen'])): 
-                                $ruta_foto = '/heldyn/centeno/uploads/quienes-somos/equipo/' . $miembro['imagen'];
+                                $ruta_foto = '/sige/centeno/uploads/quienes-somos/equipo/' . $miembro['imagen'];
                             ?>
                                 <img src="<?php echo $ruta_foto; ?>" 
                                      alt="<?php echo htmlspecialchars($miembro['nombre']); ?>"
@@ -1198,7 +1198,7 @@ if ($socialResult) {
                 <div class="col-lg-3 col-md-4 col-sm-6 mb-4 fade-in">
                     <div class="collaborator-logo">
                         <?php if (!empty($colaborador['logo'])): 
-                            $ruta_logo = '/heldyn/centeno/uploads/quienes-somos/colaboradores/' . $colaborador['logo'];
+                            $ruta_logo = '/sige/centeno/uploads/quienes-somos/colaboradores/' . $colaborador['logo'];
                         ?>
                             <?php if (!empty($colaborador['url'])): ?>
                                 <a href="<?php echo htmlspecialchars($colaborador['url']); ?>" target="_blank">

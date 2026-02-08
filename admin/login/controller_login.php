@@ -7,6 +7,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'];  
     $password = $_POST['password'];  
 
+    // Guardar el email en sesión para mantenerlo en caso de error
+    $_SESSION['login_email'] = $email;
+
     // Buscar usuario (todos los roles)
     $sql = "SELECT * FROM usuarios WHERE email = :email";  
     $query = $pdo->prepare($sql);  
@@ -25,6 +28,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;  
         } else {
             if (password_verify($password, $usuario['password'])) {  
+                // Limpiar el email de sesión ya que el login fue exitoso
+                if (isset($_SESSION['login_email'])) {
+                    unset($_SESSION['login_email']);
+                }
+                
                 // Si es docente (rol_id = 5), verificar estado en profesores
                 if ($usuario['rol_id'] == 5) {
                     // Buscar profesor por email
@@ -105,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     // Mensaje de bienvenida para admin/otros roles
                     $_SESSION['titulo'] = "✅ Acceso Concedido";
-                    $_SESSION['mensaje'] = "✅ <strong>Bienvenido al Sistema. </strong><br><br> " ;  
+                    $_SESSION['mensaje'] = "✅ <strong>Bienvenido al Sistema Sige. </strong><br><br> " ;  
                     $_SESSION['icono'] = "success";  
                     
                     // Redirigir al dashboard

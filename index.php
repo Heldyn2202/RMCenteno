@@ -1,3 +1,71 @@
+<?php
+// CONEXIÓN A BASE DE DATOS Y CONSULTAS
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "sige";
+
+// Crear conexión
+$con = new mysqli($servername, $username, $password, $dbname);
+
+// Verificar conexión
+if ($con->connect_error) {
+    die("Conexión fallida: " . $con->connect_error);
+}
+
+// Obtener elementos del carrusel que estén activos y dentro del rango de fechas
+$currentDate = date('Y-m-d');
+$carruselQuery = "SELECT * FROM carrusel 
+                 WHERE activo = 1 
+                 AND fecha_inicio <= '$currentDate' 
+                 AND fecha_fin >= '$currentDate' 
+                 ORDER BY fecha_creacion DESC";
+$carruselResult = mysqli_query($con, $carruselQuery);
+$carruselItems = [];
+$carruselCount = 0;
+
+if ($carruselResult) {
+    $carruselItems = mysqli_fetch_all($carruselResult, MYSQLI_ASSOC);
+    $carruselCount = count($carruselItems);
+}
+
+// Configuración de paginación para posts
+if (isset($_GET['pageno'])) {
+    $pageno = $_GET['pageno'];
+} else {
+    $pageno = 1;
+}
+$no_of_records_per_page = 6;
+$offset = ($pageno-1) * $no_of_records_per_page;
+
+$total_pages_sql = "SELECT COUNT(*) FROM tblposts WHERE Is_Active=1";
+$result = mysqli_query($con,$total_pages_sql);
+$total_rows = mysqli_fetch_array($result)[0];
+$total_pages = ceil($total_rows / $no_of_records_per_page);
+
+// Obtener posts para la página actual
+$query = mysqli_query($con,"SELECT tblposts.id as pid,tblposts.PostTitle as posttitle,tblposts.PostImage,tblcategory.CategoryName as category,tblcategory.id as cid,tblsubcategory.Subcategory as subcategory,tblposts.PostDetails as postdetails,tblposts.PostingDate as postingdate,tblposts.UpdationDate as updationdate,tblposts.PostUrl as url FROM tblposts LEFT JOIN tblcategory ON tblcategory.id=tblposts.CategoryId LEFT JOIN tblsubcategory ON tblsubcategory.SubCategoryId=tblposts.SubCategoryId WHERE tblposts.Is_Active=1 ORDER BY tblposts.id DESC LIMIT $offset, $no_of_records_per_page");
+$posts = [];
+if ($query) {
+    $posts = mysqli_fetch_all($query, MYSQLI_ASSOC);
+}
+
+// Obtener categorías
+$categoriesQuery = "SELECT * FROM tblcategory WHERE Is_Active = 1 ORDER BY CategoryName";
+$categoriesResult = mysqli_query($con, $categoriesQuery);
+$categories = [];
+if ($categoriesResult) {
+    $categories = mysqli_fetch_all($categoriesResult, MYSQLI_ASSOC);
+}
+
+// Obtener redes sociales desde la base de datos
+$socialQuery = "SELECT * FROM social_media WHERE status = 1 ORDER BY name";
+$socialResult = mysqli_query($con, $socialQuery);
+$social_media = [];
+if ($socialResult) {
+    $social_media = mysqli_fetch_all($socialResult, MYSQLI_ASSOC);
+}
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -594,6 +662,19 @@
             font-size: 13px;
             color: var(--text-light);
             margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        
+        .noticia-fecha {
+            color: #6c757d;
+        }
+        
+        .noticia-updated {
+            font-size: 11px;
+            color: #888;
+            font-style: italic;
         }
         
         .noticia-excerpt {
@@ -896,82 +977,13 @@
 </head>
 
 <body>
-    <?php
-    // CONEXIÓN A BASE DE DATOS Y CONSULTAS
-    $servername = "localhost";
-    $username = "root";
-    $password = "";
-    $dbname = "sige";
-    
-    // Crear conexión
-    $con = new mysqli($servername, $username, $password, $dbname);
-    
-    // Verificar conexión
-    if ($con->connect_error) {
-        die("Conexión fallida: " . $con->connect_error);
-    }
-
-    // Obtener elementos del carrusel que estén activos y dentro del rango de fechas
-    $currentDate = date('Y-m-d');
-    $carruselQuery = "SELECT * FROM carrusel 
-                     WHERE activo = 1 
-                     AND fecha_inicio <= '$currentDate' 
-                     AND fecha_fin >= '$currentDate' 
-                     ORDER BY fecha_creacion DESC";
-    $carruselResult = mysqli_query($con, $carruselQuery);
-    $carruselItems = [];
-    $carruselCount = 0;
-
-    if ($carruselResult) {
-        $carruselItems = mysqli_fetch_all($carruselResult, MYSQLI_ASSOC);
-        $carruselCount = count($carruselItems);
-    }
-
-    // Configuración de paginación para posts
-    if (isset($_GET['pageno'])) {
-        $pageno = $_GET['pageno'];
-    } else {
-        $pageno = 1;
-    }
-    $no_of_records_per_page = 6;
-    $offset = ($pageno-1) * $no_of_records_per_page;
-
-    $total_pages_sql = "SELECT COUNT(*) FROM tblposts WHERE Is_Active=1";
-    $result = mysqli_query($con,$total_pages_sql);
-    $total_rows = mysqli_fetch_array($result)[0];
-    $total_pages = ceil($total_rows / $no_of_records_per_page);
-
-    // Obtener posts para la página actual
-    $query = mysqli_query($con,"SELECT tblposts.id as pid,tblposts.PostTitle as posttitle,tblposts.PostImage,tblcategory.CategoryName as category,tblcategory.id as cid,tblsubcategory.Subcategory as subcategory,tblposts.PostDetails as postdetails,tblposts.PostingDate as postingdate,tblposts.PostUrl as url FROM tblposts LEFT JOIN tblcategory ON tblcategory.id=tblposts.CategoryId LEFT JOIN tblsubcategory ON tblsubcategory.SubCategoryId=tblposts.SubCategoryId WHERE tblposts.Is_Active=1 ORDER BY tblposts.id DESC LIMIT $offset, $no_of_records_per_page");
-    $posts = [];
-    if ($query) {
-        $posts = mysqli_fetch_all($query, MYSQLI_ASSOC);
-    }
-
-    // Obtener categorías
-    $categoriesQuery = "SELECT * FROM tblcategory WHERE Is_Active = 1 ORDER BY CategoryName";
-    $categoriesResult = mysqli_query($con, $categoriesQuery);
-    $categories = [];
-    if ($categoriesResult) {
-        $categories = mysqli_fetch_all($categoriesResult, MYSQLI_ASSOC);
-    }
-
-    // Obtener redes sociales desde la base de datos
-    $socialQuery = "SELECT * FROM social_media WHERE status = 1 ORDER BY name";
-    $socialResult = mysqli_query($con, $socialQuery);
-    $social_media = [];
-    if ($socialResult) {
-        $social_media = mysqli_fetch_all($socialResult, MYSQLI_ASSOC);
-    }
-    ?>
-    
     <!-- Header -->
     <header class="site-header">
         <div class="header-main">
             <div class="container">
                 <div class="hm-header-inner">
                     <div class="site-branding">
-                        <h4 class="site-title"><a href="index.php">U.E. Roberto Martinez Centeno</a></h2>
+                        <h4 class="site-title"><a href="index.php">U.E. Roberto Martinez Centeno</a></h4>
                     </div>
                     
                     <nav class="main-navigation">
@@ -1058,8 +1070,8 @@
     <div class="hm-slides-container">
         <?php if ($carruselCount > 0): ?>
             <?php foreach ($carruselItems as $index => $item): 
-                // ¡¡¡RUTA CORREGIDA!!!
-                $ruta_imagen = '/heldyn/centeno/uploads/carrusel/' . $item['imagen_path'];
+                // Ruta corregida para carrusel
+                $ruta_imagen = '/sige/centeno/uploads/carrusel/' . $item['imagen_path'];
             ?>
             <div class="hm-slide <?php echo $index === 0 ? 'active' : ''; ?>">
                 <div class="hm-slide-image">
@@ -1142,22 +1154,6 @@
     <?php endif; ?>
 </div>
 
-<!-- Script de depuración para el carrusel -->
-<script>
-console.log('🔍 DEPURACIÓN CARRUSEL PRINCIPAL');
-<?php if ($carruselCount > 0): ?>
-    <?php foreach ($carruselItems as $index => $item): ?>
-        const img<?php echo $index; ?> = new Image();
-        img<?php echo $index; ?>.onload = function() {
-            console.log('✅ Slide <?php echo $index + 1; ?> cargado: <?php echo addslashes($item['titulo']); ?>');
-        };
-        img<?php echo $index; ?>.onerror = function() {
-            console.error('❌ Error slide <?php echo $index + 1; ?>: /heldyn/centeno/uploads/carrusel/<?php echo addslashes($item['imagen_path']); ?>');
-        };
-        img<?php echo $index; ?>.src = '/heldyn/centeno/uploads/carrusel/<?php echo addslashes($item['imagen_path']); ?>';
-    <?php endforeach; ?>
-<?php endif; ?>
-</script>
     <!-- Ejes de Gestión -->
     <section class="ejes-section">
         <div class="container">
@@ -1207,11 +1203,25 @@ console.log('🔍 DEPURACIÓN CARRUSEL PRINCIPAL');
             <h2 class="section-title">Noticias y Avisos</h2>
             <div class="noticias-grid">
                 <?php if (count($posts) > 0): ?>
-                    <?php foreach ($posts as $post): ?>
+                    <?php foreach ($posts as $post): 
+                        // FORMATO DE FECHAS - Solución para la fecha
+                        $fecha_publicacion = date('d/m/Y', strtotime($post['postingdate']));
+                        $fecha_actualizacion = !empty($post['updationdate']) && $post['updationdate'] != '0000-00-00 00:00:00' 
+                            ? date('d/m/Y', strtotime($post['updationdate'])) 
+                            : null;
+                        
+                        // RUTA CORREGIDA PARA IMÁGENES
+                        $ruta_imagen_noticia = 'admin/admin/uploads/post/' . htmlentities($post['PostImage']);
+                        $imagen_url = file_exists($ruta_imagen_noticia) ? $ruta_imagen_noticia : 
+                                     (file_exists('uploads/post/' . $post['PostImage']) ? 'uploads/post/' . $post['PostImage'] : 
+                                     'https://placehold.co/400x200/1a4b8c/white?text=Noticia');
+                    ?>
                     <article class="noticia-card">
                         <div class="noticia-image">
                             <a href="news-details.php?nid=<?php echo htmlentities($post['pid'])?>">
-                                <img src="admin/uploads/post/<?php echo htmlentities($post['PostImage']);?>" alt="<?php echo htmlentities($post['posttitle']);?>" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlbiBubyBkaXNwb25pYmxlPC90ZXh0Pjwvc3ZnPg=='">
+                                <img src="<?php echo $imagen_url; ?>" 
+                                     alt="<?php echo htmlentities($post['posttitle']);?>" 
+                                     onerror="this.onerror=null; this.src='https://placehold.co/400x200/1a4b8c/white?text=Noticia'; console.error('Error cargando imagen de noticia:', '<?php echo addslashes($post['PostImage']); ?>')">
                             </a>
                         </div>
                         <div class="noticia-content">
@@ -1221,8 +1231,17 @@ console.log('🔍 DEPURACIÓN CARRUSEL PRINCIPAL');
                                 </a>
                             </h3>
                             <div class="noticia-meta">
-                                <span class="fecha"><?php echo htmlentities($post['postingdate']);?></span>
-                                <span class="categoria"> | <?php echo htmlentities($post['category']);?></span>
+                                <div class="noticia-fecha">
+                                    <i class="far fa-calendar"></i> Publicado: <?php echo $fecha_publicacion; ?>
+                                </div>
+                                <?php if ($fecha_actualizacion && $fecha_actualizacion != $fecha_publicacion): ?>
+                                <div class="noticia-updated">
+                                    <i class="fas fa-sync-alt"></i> Actualizado: <?php echo $fecha_actualizacion; ?>
+                                </div>
+                                <?php endif; ?>
+                                <div class="noticia-categoria">
+                                    <i class="fas fa-tag"></i> <?php echo htmlentities($post['category']);?>
+                                </div>
                             </div>
                             <div class="noticia-excerpt">
                                 <p><?php echo substr(strip_tags(htmlspecialchars_decode($post['postdetails'])), 0, 150); ?>...</p>
@@ -1244,8 +1263,12 @@ console.log('🔍 DEPURACIÓN CARRUSEL PRINCIPAL');
                                 <a href="#">Inscripciones abiertas para el nuevo año escolar</a>
                             </h3>
                             <div class="noticia-meta">
-                                <span class="fecha">15/10/2024</span>
-                                <span class="categoria"> | Admisiones</span>
+                                <div class="noticia-fecha">
+                                    <i class="far fa-calendar"></i> Publicado: <?php echo date('d/m/Y'); ?>
+                                </div>
+                                <div class="noticia-categoria">
+                                    <i class="fas fa-tag"></i> Admisiones
+                                </div>
                             </div>
                             <div class="noticia-excerpt">
                                 <p>Ya están abiertas las inscripciones para el próximo año escolar. Conoce los requisitos y fechas importantes.</p>
@@ -1265,8 +1288,12 @@ console.log('🔍 DEPURACIÓN CARRUSEL PRINCIPAL');
                                 <a href="#">Talleres para padres sobre educación emocional</a>
                             </h3>
                             <div class="noticia-meta">
-                                <span class="fecha">12/10/2024</span>
-                                <span class="categoria"> | Formación</span>
+                                <div class="noticia-fecha">
+                                    <i class="far fa-calendar"></i> Publicado: <?php echo date('d/m/Y', strtotime('-2 days')); ?>
+                                </div>
+                                <div class="noticia-categoria">
+                                    <i class="fas fa-tag"></i> Formación
+                                </div>
                             </div>
                             <div class="noticia-excerpt">
                                 <p>Invitamos a todos los padres de familia a participar en nuestros talleres sobre educación emocional en casa.</p>
@@ -1286,8 +1313,12 @@ console.log('🔍 DEPURACIÓN CARRUSEL PRINCIPAL');
                                 <a href="#">Reconocimiento a estudiantes destacados</a>
                             </h3>
                             <div class="noticia-meta">
-                                <span class="fecha">10/10/2024</span>
-                                <span class="categoria"> | Reconocimientos</span>
+                                <div class="noticia-fecha">
+                                    <i class="far fa-calendar"></i> Publicado: <?php echo date('d/m/Y', strtotime('-5 days')); ?>
+                                </div>
+                                <div class="noticia-categoria">
+                                    <i class="fas fa-tag"></i> Reconocimientos
+                                </div>
                             </div>
                             <div class="noticia-excerpt">
                                 <p>Felicitamos a nuestros estudiantes que obtuvieron reconocimientos en competencias académicas regionales.</p>
@@ -1580,7 +1611,22 @@ $derechos_actual = str_replace('[año]', date('Y'), $footer_config['derechos_aut
                     link.addEventListener('click', closeMobileMenu);
                 });
             }
+            
+            // Depuración de imágenes de noticias
+            console.log('🔍 DEPURACIÓN DE IMÁGENES DE NOTICIAS');
+            const noticiaImagenes = document.querySelectorAll('.noticia-image img');
+            noticiaImagenes.forEach((img, index) => {
+                img.addEventListener('error', function() {
+                    console.error(`❌ Error cargando imagen de noticia ${index + 1}:`, this.src);
+                    this.src = 'https://placehold.co/400x200/1a4b8c/white?text=Noticia';
+                });
+                
+                img.addEventListener('load', function() {
+                    console.log(`✅ Imagen de noticia ${index + 1} cargada:`, this.src);
+                });
+            });
         });
     </script>
 </body>
 </html>
+<?php $con->close(); ?>

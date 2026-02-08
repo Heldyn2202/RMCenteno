@@ -1,0 +1,15 @@
+# Denegar acceso a todos los archivos en este directorio
+Order Deny,Allow
+Deny from all
+
+# Permitir acceso solo a imágenes
+<FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# Configuración adicional de seguridad
+Options -Indexes
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>

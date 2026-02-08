@@ -809,7 +809,9 @@ if (isset($_SESSION['login_id'])) {
             <form action="controller_login.php" method="post" id="loginForm" autocomplete="on">  
 
                 <div class="input-group">  
-                    <input type="email" name="email" class="form-control" placeholder="Correo electrónico"  autocomplete="off" inputmode="email">
+                    <input type="email" name="email" class="form-control" placeholder="Correo electrónico" 
+                           value="<?php echo isset($_SESSION['login_email']) ? htmlspecialchars($_SESSION['login_email'], ENT_QUOTES) : ''; ?>" 
+                           autocomplete="off" inputmode="email" required>
                     <div class="input-group-append">  
                         <div class="input-group-text">  
                             <span class="fas fa-envelope"></span>  
@@ -846,6 +848,11 @@ if (isset($_SESSION['login_id'])) {
                 <div class="text-center mt-3">
                     <a href="#" class="btn-forgot" data-toggle="modal" data-target="#recoveryModal">
                         <i class="fas fa-key mr-1"></i> ¿Olvidaste tu contraseña?
+                    </a>
+                </div>
+                <div class="text-center mt-2">
+                    <a href="http://localhost/sige/centeno" class="btn-forgot">
+                        <i class="fas fa-arrow-left mr-1"></i> Volver al Portal
                     </a>
                 </div>
             </form>  
@@ -1125,6 +1132,13 @@ document.addEventListener('DOMContentLoaded', function() {
             customClass: {
                 popup: 'custom-swal-popup'
             }
+        }).then(() => {
+            // Limpiar solo el campo de contraseña después de mostrar el error
+            const passwordInput = document.getElementById('password');
+            if (passwordInput) {
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
         });  
         <?php   
             unset($_SESSION['mensaje']);
@@ -1151,3 +1165,9 @@ if (window.performance && window.performance.navigation.type === 2) {
 
 </body>  
 </html>
+<?php
+// Limpiar la sesión del email después de usarlo
+if (isset($_SESSION['login_email'])) {
+    unset($_SESSION['login_email']);
+}
+?>
